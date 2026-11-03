@@ -1,0 +1,227 @@
+openapi: 3.1.0
+info:
+  title: FHDOD Experiência do Paciente
+  version: 1.0.0
+  description: >-
+    API própria do projeto, executada pelo backend Node. O backend encaminha operações
+    permitidas ao Supabase, que mantém autenticação e persistência. Operações administrativas
+    exigem access token e perfil habilitado. Chaves do Supabase ficam somente no servidor.
+servers:
+  - url: http://127.0.0.1:5173/api
+    description: API local do projeto (inicie com node backend/server.cjs)
+paths:
+  /health:
+    get:
+      summary: Verificar disponibilidade da API
+      operationId: healthCheck
+      responses:
+        '200': { description: API em execução }
+  /auth/v1/token:
+    post:
+      summary: Entrar ou renovar sessão institucional
+      description: A API encaminha a autenticação ao Supabase Auth e devolve a sessão do usuário.
+      operationId: autenticar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                refresh_token: { type: string }
+      responses:
+        '200': { description: Sessão autenticada }
+        '400': { description: Credenciais ou refresh token inválidos }
+  /auth/v1/signup:
+    post:
+      summary: Criar conta de usuário da equipe
+      description: Cria uma conta no Auth. O cadastro não concede perfil; um superadministrador deve liberar o acesso depois.
+      operationId: cadastrarContaEquipe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, data]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 8 }
+                data:
+                  type: object
+                  properties:
+                    name: { type: string, maxLength: 120 }
+      responses:
+        '200': { description: Conta criada; sessão pode depender da confirmação de e-mail }
+        '400': { description: E-mail, senha ou configuração de cadastro inválida }
+  /rest/v1/rpc/registrar_resposta:
+    post:
+      summary: Registrar nota geral
+      description: Public endpoint. Rate limits per device over 10 minutes: 15 QR submissions and 100 tablet submissions. The sector-wide limit is 1000 submissions over the same period.
+      operationId: registrarResposta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [p_setor, p_nota]
+              properties:
+                p_setor: { type: string, enum: [pa, int, enfermagem, lab, rx, refeitorio] }
+                p_nota: { type: integer, minimum: 1, maximum: 5 }
+                p_origem: { type: string, enum: [qr, tablet], default: qr }
+                p_dispositivo: { type: [string, "null"], maxLength: 64 }
+      responses:
+        '200': { description: UUID da resposta recém-criada, content: { application/json: { schema: { type: string, format: uuid } } } }
+        '4XX': { description: Setor/nota inválidos ou limite excedido }
+  /rest/v1/rpc/complementar_resposta:
+    post:
+      summary: Salvar jornada e manifestação opcional
+      description: Permitido por até duas horas após a criação da resposta.
+      operationId: complementarResposta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [p_id]
+              properties:
+                p_id: { type: string, format: uuid }
+                p_jornada: { type: [object, "null"], description: Notas opcionais para recepcao, triagem, enfermagem, medico, alimentacao, limpeza, conforto e orientacoes., additionalProperties: { type: integer, minimum: 1, maximum: 5 } }
+                p_tipo: { type: [string, "null"], enum: [elogio, reclamacao, sugestao, null] }
+                p_comentario: { type: [string, "null"], maxLength: 1000 }
+      responses:
+        '204': { description: Dados complementados }
+        '4XX': { description: Resposta expirada ou conteúdo inválido }
+  /rest/v1/rpc/registrar_contato:
+    post:
+      summary: Solicitar retorno da Ouvidoria
+      description: Requer aceite explícito e telefone válido; retorna protocolo.
+      operationId: registrarContato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [p_id, p_telefone, p_aceite]
+              properties:
+                p_id: { type: string, format: uuid }
+                p_telefone: { type: string, minLength: 10, maxLength: 20 }
+                p_obs: { type: [string, "null"], maxLength: 500 }
+                p_aceite: { type: boolean, const: true }
+      responses:
+        '200': { description: Protocolo da Ouvidoria, content: { application/json: { schema: { type: string } } } }
+        '4XX': { description: Consentimento ou telefone inválido }
+  /rest/v1/rpc/painel_resumo:
+    post:
+      summary: Consultar indicadores conforme perfil
+      operationId: painelResumo
+      security: [{ UserAccessToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                p_setor: { type: [string, "null"] }
+                p_turno: { type: [string, "null"], enum: [Manhã, Tarde, Noite, null] }
+                p_dias: { type: integer, minimum: 1, maximum: 3650, default: 30 }
+      responses:
+        '200': { description: KPIs e agregados sem contato pessoal }
+        '401': { description: Sessão ausente/inválida }
+        '403': { description: Perfil sem acesso }
+  /rest/v1/rpc/listar_manifestacoes:
+    post:
+      summary: Listar manifestações
+      description: Telefone é incluído somente para Ouvidoria e Super Admin.
+      operationId: listarManifestacoes
+      security: [{ UserAccessToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                p_setor: { type: [string, "null"] }
+      responses:
+        '200': { description: Lista autorizada pelo perfil }
+        '401': { description: Sessão ausente/inválida }
+        '403': { description: Perfil sem acesso }
+  /rest/v1/rpc/exportar_respostas:
+    post:
+      summary: Exportar respostas sem telefone
+      operationId: exportarRespostas
+      security: [{ UserAccessToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                p_setor: { type: [string, "null"] }
+      responses:
+        '200': { description: Respostas em JSON para conversão CSV }
+        '401': { description: Sessão ausente/inválida }
+        '403': { description: Perfil sem acesso }
+  /rest/v1/rpc/tv_resumo:
+    post:
+      summary: Consultar indicadores agregados do TV Wall
+      description: Sem telefone; somente KPIs coletivos.
+      operationId: tvResumo
+      responses:
+        '200': { description: Contagem e médias agregadas }
+  /rest/v1/rpc/definir_perfil:
+    post:
+      summary: Conceder acesso de administrador ou superadministrador
+      description: Somente superadministrador. O usuário precisa existir no Supabase Auth; admin_setor exige um setor ativo e fica limitado a ele.
+      operationId: definirPerfil
+      security: [{ UserAccessToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [p_email, p_nome, p_perfil]
+              properties:
+                p_email: { type: string, format: email }
+                p_nome: { type: string, maxLength: 120 }
+                p_perfil: { type: string, enum: [admin_setor, super_admin] }
+                p_setor: { type: [string, "null"], enum: [pa, int, enfermagem, lab, rx, refeitorio, null] }
+      responses:
+        '204': { description: Perfil atribuído }
+        '401': { description: Sessão ausente/inválida }
+        '403': { description: Somente superadministrador pode conceder acesso }
+  /rest/v1/rpc/salvar_pergunta_setor:
+    post:
+      summary: Criar ou substituir a única pergunta ativa de um setor
+      description: Superadministrador pode escolher qualquer setor; administrador de setor só pode alterar o setor associado ao seu perfil.
+      operationId: salvarPerguntaSetor
+      security: [{ UserAccessToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [p_setor, p_texto]
+              properties:
+                p_setor: { type: string, enum: [pa, int, enfermagem, lab, rx, refeitorio] }
+                p_texto: { type: string, minLength: 8, maxLength: 180 }
+      responses:
+        '204': { description: Pergunta atualizada; versões anteriores permanecem inativas }
+        '401': { description: Sessão ausente/inválida }
+        '403': { description: Perfil sem acesso ao setor solicitado }
+components:
+  securitySchemes:
+    UserAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
