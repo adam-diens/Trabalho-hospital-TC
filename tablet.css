@@ -1,0 +1,77 @@
+/* Tela de pesquisa otimizada para tablet e uso compartilhado no hospital. */
+@media (min-width: 700px) {
+  .patient-shell { width: min(720px, calc(100% - 48px)); margin: 34px auto 48px; }
+  .survey-card { min-height: 560px; padding: clamp(38px, 5vw, 68px); justify-content: center; gap: 12px; }
+  .survey-card h1 { font-size: clamp(30px, 3.2vw, 44px); line-height: 1.2; margin-bottom: 18px; }
+  .survey-card .lead { font-size: 17px; line-height: 1.65; margin-bottom: 30px; }
+  .survey-card .face { width: clamp(88px, 12vw, 132px); height: clamp(96px, 13vw, 140px); gap: 10px; border-radius: 16px; }
+  .survey-card .face span { font-size: clamp(38px, 5vw, 56px); }
+  .survey-card .face small { font-size: 14px; }
+  .survey-card .button { height: 62px; font-size: 17px; }
+}
+
+.tablet-kiosk { background: #edf4f2; }
+.tablet-kiosk .topbar { display: none; }
+.tablet-kiosk .patient-shell { width: min(980px, calc(100vw - 52px)); margin: 3vh auto 2vh; }
+.tablet-kiosk .patient-shell > .eyebrow,
+.tablet-kiosk .privacy-note { font-size: 13px; }
+.tablet-kiosk .survey-card {
+  min-height: 85vh; padding: clamp(38px, 6vh, 80px) clamp(34px, 7vw, 110px);
+  border-radius: 26px; justify-content: center; gap: 18px;
+}
+.tablet-kiosk .survey-card h1 { font-size: clamp(36px, 4.4vw, 58px); max-width: 760px; margin-left: auto; margin-right: auto; }
+.tablet-kiosk .survey-card .lead { font-size: clamp(17px, 1.8vw, 22px); max-width: 650px; margin: 0 auto 28px; }
+.tablet-kiosk .survey-card .faces { justify-content: center; gap: clamp(14px, 2.5vw, 32px); margin: 22px 0; }
+.tablet-kiosk .survey-card .face { width: clamp(100px, 13vw, 160px); height: clamp(112px, 16vh, 170px); border-radius: 20px; }
+.tablet-kiosk .survey-card .face span { font-size: clamp(48px, 6vw, 72px); }
+.tablet-kiosk .survey-card .face small { font-size: clamp(14px, 1.4vw, 18px); }
+.tablet-kiosk .survey-card .button { height: 68px; font-size: 19px; }
+.tablet-kiosk .survey-card .field-label { font-size: 15px; }
+.tablet-kiosk .survey-card .field-label input,
+.tablet-kiosk .survey-card .field-label select,
+.tablet-kiosk .survey-card .field-label textarea { font-size: 18px; padding: 15px; }
+
+.admin-tools:not(.hidden) {
+  max-width: 1192px; margin: 0 auto 20px; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;
+}
+.admin-tools .panel { width: 100%; margin: 0; }
+.admin-tools h2 { font: 800 19px Manrope, sans-serif; margin: 7px 0; }
+.admin-tools p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.form-status { display: block; min-height: 18px; margin-top: 10px; color: var(--green); font-size: 11px; }
+
+/* Etapas opcionais: selecao por toque e opcao de pular discreta, sempre visivel. */
+.journey-stage-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 2px 0 18px; }
+.journey-stage-option {
+  min-height: 62px; padding: 10px 13px; display: flex; align-items: center; gap: 11px;
+  border: 1px solid #dce8e5; border-radius: 12px; background: #fff; color: #496763;
+  text-align: left; font-size: 14px; font-weight: 700;
+}
+.journey-stage-option:hover, .journey-stage-option.selected { border-color: #68aa9d; background: #f0f8f5; color: #1d665b; }
+.journey-stage-option:focus-visible, .optional-skip:focus-visible { outline: 3px solid #238d7c; outline-offset: 3px; }
+.journey-stage-icon { width: 32px; height: 32px; display: grid; place-items: center; flex: none; border-radius: 9px; background: #eaf5f1; color: #197466; font-size: 20px; }
+.journey-stage-check { margin-left: auto; color: #197466; font-size: 18px; }
+.journey-continue { margin-top: 2px; }
+.survey-card .optional-skip {
+  align-self: center; min-height: 44px; margin: 7px auto 0; padding: 8px 14px;
+  border: 0; background: transparent; color: #7a8e89; font-size: 12px; text-decoration: underline;
+  text-decoration-color: transparent; text-underline-offset: 3px;
+}
+.survey-card .optional-skip:hover, .survey-card .optional-skip:focus-visible { color: #496763; text-decoration-color: currentColor; }
+
+@media (max-width: 900px) {
+  .admin-tools:not(.hidden) { margin-left: 18px; margin-right: 18px; }
+}
+@media (max-width: 640px) {
+  .journey-stage-options { grid-template-columns: 1fr; gap: 8px; }
+  .journey-stage-option { min-height: 56px; }
+  .survey-card .optional-skip { min-height: 44px; }
+  .tablet-kiosk .patient-shell { width: calc(100vw - 24px); margin: 12px auto; }
+  .tablet-kiosk .survey-card { min-height: calc(100vh - 82px); padding: 25px 18px; border-radius: 18px; }
+  .tablet-kiosk .survey-card h1 { font-size: 29px; }
+  .tablet-kiosk .survey-card .faces { gap: 5px; }
+  .tablet-kiosk .survey-card .face { width: 58px; height: 72px; border-radius: 10px; }
+  .tablet-kiosk .survey-card .face span { font-size: 30px; }
+  .tablet-kiosk .survey-card .face small { font-size: 10px; }
+  .admin-tools:not(.hidden) { grid-template-columns: 1fr; }
+}
