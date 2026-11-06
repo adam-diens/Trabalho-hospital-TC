@@ -1,227 +1,3006 @@
-openapi: 3.1.0
-info:
-  title: FHDOD Experiência do Paciente
-  version: 1.0.0
-  description: >-
-    API própria do projeto, executada pelo backend Node. O backend encaminha operações
-    permitidas ao Supabase, que mantém autenticação e persistência. Operações administrativas
-    exigem access token e perfil habilitado. Chaves do Supabase ficam somente no servidor.
-servers:
-  - url: http://127.0.0.1:5173/api
-    description: API local do projeto (inicie com node backend/server.cjs)
-paths:
-  /health:
-    get:
-      summary: Verificar disponibilidade da API
-      operationId: healthCheck
-      responses:
-        '200': { description: API em execução }
-  /auth/v1/token:
-    post:
-      summary: Entrar ou renovar sessão institucional
-      description: A API encaminha a autenticação ao Supabase Auth e devolve a sessão do usuário.
-      operationId: autenticar
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email: { type: string, format: email }
-                password: { type: string, format: password }
-                refresh_token: { type: string }
-      responses:
-        '200': { description: Sessão autenticada }
-        '400': { description: Credenciais ou refresh token inválidos }
-  /auth/v1/signup:
-    post:
-      summary: Criar conta de usuário da equipe
-      description: Cria uma conta no Auth. O cadastro não concede perfil; um superadministrador deve liberar o acesso depois.
-      operationId: cadastrarContaEquipe
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password, data]
-              properties:
-                email: { type: string, format: email }
-                password: { type: string, format: password, minLength: 8 }
-                data:
-                  type: object
-                  properties:
-                    name: { type: string, maxLength: 120 }
-      responses:
-        '200': { description: Conta criada; sessão pode depender da confirmação de e-mail }
-        '400': { description: E-mail, senha ou configuração de cadastro inválida }
-  /rest/v1/rpc/registrar_resposta:
-    post:
-      summary: Registrar nota geral
-      description: Public endpoint. Rate limits per device over 10 minutes: 15 QR submissions and 100 tablet submissions. The sector-wide limit is 1000 submissions over the same period.
-      operationId: registrarResposta
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [p_setor, p_nota]
-              properties:
-                p_setor: { type: string, enum: [pa, int, enfermagem, lab, rx, refeitorio] }
-                p_nota: { type: integer, minimum: 1, maximum: 5 }
-                p_origem: { type: string, enum: [qr, tablet], default: qr }
-                p_dispositivo: { type: [string, "null"], maxLength: 64 }
-      responses:
-        '200': { description: UUID da resposta recém-criada, content: { application/json: { schema: { type: string, format: uuid } } } }
-        '4XX': { description: Setor/nota inválidos ou limite excedido }
-  /rest/v1/rpc/complementar_resposta:
-    post:
-      summary: Salvar jornada e manifestação opcional
-      description: Permitido por até duas horas após a criação da resposta.
-      operationId: complementarResposta
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [p_id]
-              properties:
-                p_id: { type: string, format: uuid }
-                p_jornada: { type: [object, "null"], description: Notas opcionais das etapas do setor; avaliação geral permanece de 1 a 5., additionalProperties: { type: integer, minimum: 1, maximum: 10 } }
-                p_tipo: { type: [string, "null"], enum: [elogio, reclamacao, sugestao, null] }
-                p_comentario: { type: [string, "null"], maxLength: 1000 }
-      responses:
-        '204': { description: Dados complementados }
-        '4XX': { description: Resposta expirada ou conteúdo inválido }
-  /rest/v1/rpc/registrar_contato:
-    post:
-      summary: Solicitar retorno da Ouvidoria
-      description: Requer aceite explícito e telefone válido; retorna protocolo.
-      operationId: registrarContato
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [p_id, p_telefone, p_aceite]
-              properties:
-                p_id: { type: string, format: uuid }
-                p_telefone: { type: string, minLength: 10, maxLength: 20 }
-                p_obs: { type: [string, "null"], maxLength: 500 }
-                p_aceite: { type: boolean, const: true }
-      responses:
-        '200': { description: Protocolo da Ouvidoria, content: { application/json: { schema: { type: string } } } }
-        '4XX': { description: Consentimento ou telefone inválido }
-  /rest/v1/rpc/painel_resumo:
-    post:
-      summary: Consultar indicadores conforme perfil
-      operationId: painelResumo
-      security: [{ UserAccessToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                p_setor: { type: [string, "null"] }
-                p_turno: { type: [string, "null"], enum: [Manhã, Tarde, Noite, null] }
-                p_dias: { type: integer, minimum: 1, maximum: 3650, default: 30 }
-      responses:
-        '200': { description: KPIs e agregados sem contato pessoal }
-        '401': { description: Sessão ausente/inválida }
-        '403': { description: Perfil sem acesso }
-  /rest/v1/rpc/listar_manifestacoes:
-    post:
-      summary: Listar manifestações
-      description: Telefone é incluído somente para Ouvidoria e Super Admin.
-      operationId: listarManifestacoes
-      security: [{ UserAccessToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                p_setor: { type: [string, "null"] }
-      responses:
-        '200': { description: Lista autorizada pelo perfil }
-        '401': { description: Sessão ausente/inválida }
-        '403': { description: Perfil sem acesso }
-  /rest/v1/rpc/exportar_respostas:
-    post:
-      summary: Exportar respostas sem telefone
-      operationId: exportarRespostas
-      security: [{ UserAccessToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                p_setor: { type: [string, "null"] }
-      responses:
-        '200': { description: Respostas em JSON para conversão CSV }
-        '401': { description: Sessão ausente/inválida }
-        '403': { description: Perfil sem acesso }
-  /rest/v1/rpc/tv_resumo:
-    post:
-      summary: Consultar indicadores agregados do TV Wall
-      description: Sem telefone; somente KPIs coletivos.
-      operationId: tvResumo
-      responses:
-        '200': { description: Contagem e médias agregadas }
-  /rest/v1/rpc/definir_perfil:
-    post:
-      summary: Conceder acesso de administrador ou superadministrador
-      description: Somente superadministrador. O usuário precisa existir no Supabase Auth; admin_setor exige um setor ativo e fica limitado a ele.
-      operationId: definirPerfil
-      security: [{ UserAccessToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [p_email, p_nome, p_perfil]
-              properties:
-                p_email: { type: string, format: email }
-                p_nome: { type: string, maxLength: 120 }
-                p_perfil: { type: string, enum: [admin_setor, super_admin] }
-                p_setor: { type: [string, "null"], enum: [pa, int, enfermagem, lab, rx, refeitorio, null] }
-      responses:
-        '204': { description: Perfil atribuído }
-        '401': { description: Sessão ausente/inválida }
-        '403': { description: Somente superadministrador pode conceder acesso }
-  /rest/v1/rpc/salvar_pergunta_setor:
-    post:
-      summary: Criar ou substituir a única pergunta ativa de um setor
-      description: Superadministrador pode escolher qualquer setor; administrador de setor só pode alterar o setor associado ao seu perfil.
-      operationId: salvarPerguntaSetor
-      security: [{ UserAccessToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [p_setor, p_texto]
-              properties:
-                p_setor: { type: string, enum: [pa, int, enfermagem, lab, rx, refeitorio] }
-                p_texto: { type: string, minLength: 8, maxLength: 180 }
-      responses:
-        '204': { description: Pergunta atualizada; versões anteriores permanecem inativas }
-        '401': { description: Sessão ausente/inválida }
-        '403': { description: Perfil sem acesso ao setor solicitado }
-components:
-  securitySchemes:
-    UserAccessToken:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FHDOD — API de Experiência do Paciente",
+    "version": "2.0.0",
+    "description": "API própria sobre o banco v2. JWT institucional para gestão; coleta anônima pelo backend. Nenhuma tabela ou credencial operacional exposta. O frontend anterior ainda precisa ser adaptado."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v2/setores": {
+      "get": {
+        "summary": "Listar setores ativos",
+        "operationId": "get_api_v2_setores",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Cadastrar setor ou atualizar nome e estado pelo slug",
+        "operationId": "put_api_v2_setores",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_-]{1,39}$"
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "ativo": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "slug",
+                  "nome"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/setores/{slug}/formulario": {
+      "get": {
+        "summary": "Consultar formulário e aviso de privacidade publicados",
+        "operationId": "get_api_v2_setores__slug_formulario",
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{1,39}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/tv": {
+      "get": {
+        "summary": "Consultar indicadores públicos agregados",
+        "operationId": "get_api_v2_tv",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/pesquisas": {
+      "post": {
+        "summary": "Enviar pesquisa completa em uma transação",
+        "operationId": "post_api_v2_pesquisas",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chave_envio": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "questionario_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "nota": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "canal": {
+                    "type": "string",
+                    "enum": [
+                      "celular",
+                      "tablet"
+                    ]
+                  },
+                  "privacidade_versao": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "etapas": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "maxProperties": 20,
+                    "propertyNames": {
+                      "pattern": "^[a-z][a-z0-9_]{0,49}$"
+                    }
+                  },
+                  "tipo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "elogio",
+                          "reclamacao",
+                          "sugestao"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "comentario": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "telefone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 25,
+                        "pattern": "^[0-9()+ .-]+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "consentimento": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "chave_envio",
+                  "questionario_id",
+                  "nota",
+                  "canal",
+                  "privacidade_versao"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recebida",
+                    "protocolo"
+                  ],
+                  "properties": {
+                    "recebida": {
+                      "const": true
+                    },
+                    "protocolo": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/entrar": {
+      "post": {
+        "summary": "Autenticar conta institucional",
+        "operationId": "post_api_v2_auth_entrar",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "email",
+                  "senha"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/renovar": {
+      "post": {
+        "summary": "Renovar sessão",
+        "operationId": "post_api_v2_auth_renovar",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/cadastrar": {
+      "post": {
+        "summary": "Solicitar cadastro, sem conceder perfil",
+        "operationId": "post_api_v2_auth_cadastrar",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "email",
+                  "senha",
+                  "nome"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/recuperar-senha": {
+      "post": {
+        "summary": "Solicitar recuperação de senha sem revelar contas",
+        "operationId": "post_api_v2_auth_recuperar_senha",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/sair": {
+      "post": {
+        "summary": "Encerrar a sessão atual",
+        "operationId": "post_api_v2_auth_sair",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auth/senha": {
+      "put": {
+        "summary": "Alterar senha usando sessão válida ou sessão de recuperação",
+        "operationId": "put_api_v2_auth_senha",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "senha": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "senha"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/me": {
+      "get": {
+        "summary": "Consultar perfil ativo da própria conta",
+        "operationId": "get_api_v2_me",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria",
+          "visualizador"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/admin/setores": {
+      "get": {
+        "summary": "Listar também setores inativos para administração",
+        "operationId": "get_api_v2_admin_setores",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/configuracao": {
+      "get": {
+        "summary": "Consultar configuração e aviso vigentes",
+        "operationId": "get_api_v2_configuracao",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Versionar aviso de privacidade e controlar a coleta e retenção",
+        "operationId": "put_api_v2_configuracao",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "privacidade_versao": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "privacidade_texto": {
+                    "type": "string",
+                    "minLength": 30,
+                    "maxLength": 10000
+                  },
+                  "habilitada": {
+                    "type": "boolean"
+                  },
+                  "retencao_dias": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3650
+                  }
+                },
+                "required": [
+                  "privacidade_versao",
+                  "privacidade_texto",
+                  "habilitada"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/questionarios": {
+      "get": {
+        "summary": "Consultar versão de questionário mesmo com coleta desabilitada",
+        "operationId": "get_api_v2_questionarios",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor"
+        ],
+        "parameters": [
+          {
+            "name": "setor",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "versao",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "post": {
+        "summary": "Publicar nova versão com escalas por pergunta",
+        "operationId": "post_api_v2_questionarios",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "setor": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "metrica": {
+                    "type": "string",
+                    "enum": [
+                      "rostos_5",
+                      "nota_10"
+                    ]
+                  },
+                  "limite_ouvidoria": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "pergunta_geral": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  },
+                  "etapas": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "chave": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50,
+                          "pattern": "^[a-z][a-z0-9_]{0,49}$"
+                        },
+                        "texto": {
+                          "type": "string",
+                          "minLength": 8,
+                          "maxLength": 300
+                        },
+                        "metrica": {
+                          "type": "string",
+                          "enum": [
+                            "rostos_5",
+                            "nota_10"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "chave",
+                        "texto",
+                        "metrica"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 20
+                  }
+                },
+                "required": [
+                  "setor",
+                  "metrica",
+                  "limite_ouvidoria",
+                  "pergunta_geral"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/painel": {
+      "get": {
+        "summary": "Consultar indicadores por período, setor, turno e equipe",
+        "operationId": "get_api_v2_painel",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria",
+          "visualizador"
+        ],
+        "parameters": [
+          {
+            "name": "inicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "fim",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manha",
+                "tarde",
+                "noite"
+              ]
+            }
+          },
+          {
+            "name": "equipe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/painel/stream": {
+      "get": {
+        "summary": "Receber indicadores atualizados por SSE",
+        "operationId": "get_api_v2_painel_stream",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria",
+          "visualizador"
+        ],
+        "parameters": [
+          {
+            "name": "inicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "fim",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manha",
+                "tarde",
+                "noite"
+              ]
+            }
+          },
+          {
+            "name": "equipe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fluxo SSE: eventos painel e erro. Usar fetch com Authorization; não colocar token na URL. Reconectar ao encerrar após cinco minutos.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/manifestacoes": {
+      "get": {
+        "summary": "Listar manifestações com paginação por protocolo",
+        "operationId": "get_api_v2_manifestacoes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria"
+        ],
+        "parameters": [
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "situacao",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "aberta",
+                "em_atendimento",
+                "encerrada"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "antes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/manifestacoes/{id}": {
+      "get": {
+        "summary": "Consultar manifestação; contato somente para Ouvidoria e Super Admin",
+        "operationId": "get_api_v2_manifestacoes__id",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/manifestacoes/{id}/atendimentos": {
+      "post": {
+        "summary": "Registrar atendimento ou encerrar manifestação com controle de revisão",
+        "operationId": "post_api_v2_manifestacoes__id_atendimentos",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "ouvidoria"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revisao": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "situacao": {
+                    "type": "string",
+                    "enum": [
+                      "em_atendimento",
+                      "encerrada"
+                    ]
+                  },
+                  "relato": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "revisao",
+                  "situacao",
+                  "relato"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revisao": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/exportacoes": {
+      "get": {
+        "summary": "Exportar página analítica sem contato nem texto livre",
+        "operationId": "get_api_v2_exportacoes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao"
+        ],
+        "parameters": [
+          {
+            "name": "inicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "fim",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manha",
+                "tarde",
+                "noite"
+              ]
+            }
+          },
+          {
+            "name": "equipe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/exportacoes.csv": {
+      "get": {
+        "summary": "Baixar CSV compatível com Excel com todos os filtros",
+        "operationId": "get_api_v2_exportacoes_csv",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao"
+        ],
+        "parameters": [
+          {
+            "name": "inicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "fim",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manha",
+                "tarde",
+                "noite"
+              ]
+            }
+          },
+          {
+            "name": "equipe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV UTF-8 com BOM, separador ponto e vírgula e defesa contra fórmulas; sem contato ou texto livre.",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/qrcodes": {
+      "get": {
+        "summary": "Obter links por setor e dispositivo para geração de QR Codes",
+        "operationId": "get_api_v2_qrcodes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria",
+          "visualizador"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/equipes": {
+      "get": {
+        "summary": "Listar equipes permitidas",
+        "operationId": "get_api_v2_equipes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria"
+        ],
+        "parameters": [
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Cadastrar equipe ou atualizar estado pelo nome e setor",
+        "operationId": "put_api_v2_equipes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "setor": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "ativa": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "setor",
+                  "nome"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/escalas": {
+      "get": {
+        "summary": "Consultar escala por setor e intervalo de até 93 dias",
+        "operationId": "get_api_v2_escalas",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria"
+        ],
+        "parameters": [
+          {
+            "name": "inicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "fim",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "setor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Definir equipe do setor, data e turno",
+        "operationId": "put_api_v2_escalas",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "setor": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "equipe": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "data": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "turno": {
+                    "type": "string",
+                    "enum": [
+                      "manha",
+                      "tarde",
+                      "noite"
+                    ]
+                  }
+                },
+                "required": [
+                  "setor",
+                  "equipe",
+                  "data",
+                  "turno"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/perfis": {
+      "get": {
+        "summary": "Listar perfis institucionais",
+        "operationId": "get_api_v2_perfis",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "parameters": [
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Conceder ou revogar um dos cinco perfis",
+        "operationId": "put_api_v2_perfis",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "usuario": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "papel": {
+                    "type": "string",
+                    "enum": [
+                      "super_admin",
+                      "admin_setor",
+                      "gestao",
+                      "ouvidoria",
+                      "visualizador"
+                    ]
+                  },
+                  "setor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "ativo": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "usuario",
+                  "nome",
+                  "papel"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/auditoria": {
+      "get": {
+        "summary": "Consultar trilha administrativa paginada",
+        "operationId": "get_api_v2_auditoria",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "parameters": [
+          {
+            "name": "antes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Verificar processo vivo, sem consultar o banco",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Disponível"
+          },
+          "503": {
+            "description": "Configuração incompleta"
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "summary": "Verificar configuração e conectividade pública com o banco",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Disponível"
+          },
+          "503": {
+            "description": "Configuração incompleta"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "UserSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error400": {
+        "description": "Entrada inválida",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error401": {
+        "description": "Sessão inválida",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error403": {
+        "description": "Perfil, setor ou origem sem autorização",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error409": {
+        "description": "Conflito de revisão ou integridade",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error413": {
+        "description": "Corpo excede o limite",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error415": {
+        "description": "Tipo de conteúdo inválido",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error422": {
+        "description": "Exportação excede o limite",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error429": {
+        "description": "Limite de tentativas",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error502": {
+        "description": "Serviço de dados indisponível",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error503": {
+        "description": "Configuração incompleta ou coleta desabilitada",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Error504": {
+        "description": "Timeout do serviço de dados",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

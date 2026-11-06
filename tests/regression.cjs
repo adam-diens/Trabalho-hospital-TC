@@ -1,4 +1,6 @@
-// Testes de integração com Supabase simulado; não grava no banco real.
+// Histórico da suíte do frontend v1. Fora de npm test enquanto app.js aguarda migração.
+// Não executar contra a API v2: contém as rotas e o contrato anteriores.
+// A suíte atual da API está em tests/backend; não grava no banco remoto.
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { spawn } = require('node:child_process');

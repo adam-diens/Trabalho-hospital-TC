@@ -6,11 +6,11 @@ Projeto do Curso Técnico em Informática Integrado ao Ensino Médio da Escola T
 
 ## Executar localmente
 
-1. Instale Node.js 18+.
-2. Copie `.env.example` para `.env` e configure `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`.
+1. Instale Node.js 22+.
+2. Copie `.env.example` para `.env` e configure `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `ORIGIN_HMAC_SECRET` (aleatório, mínimo 32 bytes) e `PUBLIC_ORIGIN`. Segredos ficam somente no servidor.
 3. Execute `npm run dev` e acesse [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-**Estado atual:** o site ainda usa o contrato anterior do banco. O banco v2 foi reconstruído e testado localmente, mas sua aplicação no Supabase e integração com o site estão pendentes. O link público definitivo ainda não foi informado.
+**Estado atual:** o banco v2 já foi instalado conforme as verificações feitas no Supabase. O backend agora usa a API `/api/v2`; o frontend continua no contrato anterior e será adaptado depois. Por isso, as telas abaixo ainda não funcionam com a API nova. O link público definitivo ainda não foi informado.
 
 ## Manual de uso
 
@@ -19,7 +19,7 @@ Projeto do Curso Técnico em Informática Integrado ao Ensino Médio da Escola T
 - **QR Codes:** a equipe autorizada pode abrir **QR Codes** e copiar o link do setor para celular ou tablet. Use o endereço definitivo antes de imprimir.
 - **TV Wall:** abra **Menu → TV Wall** para exibir os indicadores agregados. A tela atual atualiza a cada minuto.
 
-O atendimento completo da Ouvidoria e o acesso aos cinco perfis ainda dependem da integração com o banco v2.
+O backend já oferece atendimento da Ouvidoria e os cinco perfis; falta conectar essas funções às telas.
 
 ## Registro do processo e justificativas
 
@@ -29,11 +29,16 @@ O atendimento completo da Ouvidoria e o acesso aos cinco perfis ainda dependem d
 4. **Banco reconstruído:** scripts sobrepostos e falhas de integração e autorização motivaram a organização em migrations, com dados no schema `hospital` e permissões verificadas no banco.
 5. **Escalas configuráveis:** o banco v2 permite escolher rostinhos 1–5 ou nota 1–10 por pergunta. Versões preservam respostas antigas e indicadores separados evitam misturar escalas diferentes.
 6. **Equipes e indicadores:** a associação à escala é indicativa, sem atribuição de culpa individual. A divulgação pública usa dados agregados.
-7. **Validação:** os testes do site passaram com Supabase simulado. O banco passou por 115 verificações funcionais, sete de catálogo e testes concorrentes em PostgreSQL real. A homologação remota e a adaptação do site são as próximas etapas.
+7. **Backend v2:** a API passou a validar entradas, sessões e perfis, enviar a pesquisa de forma atômica, atender a Ouvidoria e exportar com os mesmos filtros do painel. SSE atualiza indicadores, e um worker separado cuida da TV e do expurgo.
+8. **Validação:** passaram 28 cenários da API, 122 verificações funcionais do banco, sete de catálogo e 27 operações HTTP com PostgreSQL real, além dos testes concorrentes. Auth/gateway são simulados nos testes; a homologação remota e a adaptação do frontend continuam pendentes.
 
 Ferramentas utilizadas: HTML, CSS, JavaScript, Node.js, Supabase/PostgreSQL, Git, Edge e Figma como referência visual.
 
-## Instalar o banco no Supabase
+## Instalar ou atualizar o banco no Supabase
+
+**Se o banco v2 já está instalado:** execute apenas [202611060005_leitura_administrativa.sql](supabase/migrations/202611060005_leitura_administrativa.sql) no SQL Editor. Não reinstale o bundle. Essa migration acrescenta consultas administrativas sem apagar dados.
+
+**Para instalação nova:**
 
 1. Em um projeto limpo, execute `npm run db:bundle` e rode o conteúdo gerado em `output/database/instalar.sql` no SQL Editor.
 2. Execute [verificar_instalacao.sql](supabase/operacoes/verificar_instalacao.sql); todos os resultados devem ser `true`.
@@ -43,9 +48,13 @@ Preserve os schemas nativos do Supabase e mantenha `hospital` fora dos schemas e
 
 ## Testes e repositório
 
-- `npm test`: testes do site; requer Node.js 22+ e Edge (`EDGE_BIN` permite outro caminho).
-- `npm run test:db`: testes do banco; requer PostgreSQL 15+ (`PG_BIN` informa a pasta dos executáveis).
+- `npm test`: testes da API v2; requer Node.js 22+. A suíte antiga do frontend está preservada em `tests/regression.cjs` e aguarda a migração das telas.
+- `npm run test:db`: testes do banco e integração HTTP com PostgreSQL real; requer PostgreSQL 15+ (`PG_BIN` informa a pasta dos executáveis).
+- `npm run api:spec`: atualiza o OpenAPI; disponível também em `/api/openapi.json`.
+- `npm run jobs`: inicia o worker de publicação da TV e expurgo diário em outro processo.
 
 Todos os testes ficam em `tests/`; não execute os SQLs dessa pasta no Supabase. No PowerShell, use `npm.cmd` se necessário.
+
+Configuração, endpoints e operação estão na [arquitetura da API](docs/arquitetura-backend.md).
 
 O `.gitignore` exclui segredos, backups, dependências e arquivos gerados em `output/`. Migrations e testes permanecem versionados. O projeto ainda precisa de homologação antes do uso com dados reais.

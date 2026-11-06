@@ -108,6 +108,8 @@ async function freePort() {
     assert.ok(limited.filter(r => r.code !== 0).every(r => /Limite temporário/.test(r.stderr)));
     assert.equal(query(`select count(*) from hospital.respostas where chave_envio in (${keys.map(k => `'${k}'`).join(',')})`), '1');
     console.log('OK: limite de origem resiste a 8 sessões concorrentes sem gravações parciais.');
+    const { databaseIntegration } = require('../backend/database-integration.cjs');
+    await databaseIntegration({ psql: path.join(bin, 'psql' + ext), args: sqlArgs });
     query('create table public.setores(id int)');
     assert.throws(() => sqlFile(path.join(dir, '202611060001_core.sql')), /Banco legado detectado/);
     console.log('OK: instalação recusa banco legado e não altera os schemas existentes.');

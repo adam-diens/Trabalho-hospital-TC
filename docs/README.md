@@ -14,6 +14,6 @@
 12. [Perguntas opcionais por setor](perguntas-por-setor.md)
 13. [Plano de negocio](plano-de-negocio.md)
 14. [Roteiro de pitch](pitch.md)
-15. [OpenAPI](../backend/openapi.yaml) e [Swagger UI local](api.html)
+15. [OpenAPI](../backend/openapi.yaml)
 
-**Estado em 06/11/2026:** banco v2 implementado e testado localmente, sem aplicação remota. Site, backend e OpenAPI ainda representam a versão anterior. Documentos de UX/manual/backend descrevem esse site; para o novo banco, as fontes atuais são as migrations, o modelo de dados e o contrato v2 na arquitetura do backend. Referências históricas a inspeções do Supabase não representam uma verificação remota atual.
+**Estado em 06/11/2026:** banco v2 instalado conforme verificação compartilhada; migration 005 e API v2 preparados e testados localmente, ainda pendentes de homologação remota. O frontend e seu manual de telas representam a interface anterior. O contrato atual está no OpenAPI e na arquitetura do backend.

@@ -2,11 +2,16 @@
   "name": "trabalho-hospital-tc",
   "private": true,
   "version": "1.0.0",
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "node backend/server.cjs",
     "start": "node backend/server.cjs",
-    "test": "node tests/regression.cjs",
+    "test": "node --test tests/backend/*.test.cjs",
+    "test:api": "node --test tests/backend/*.test.cjs",
     "test:db": "node tests/database/run.cjs",
-    "db:bundle": "node scripts/build-database.cjs"
+    "db:bundle": "node scripts/build-database.cjs",
+    "api:spec": "node scripts/build-api.cjs",
+    "jobs:once": "node backend/worker.cjs",
+    "jobs": "node backend/worker.cjs --watch"
   }
 }

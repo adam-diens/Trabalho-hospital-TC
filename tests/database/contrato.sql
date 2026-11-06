@@ -237,4 +237,19 @@ select teste.ok((select count(*)=3 from hospital.manifestacoes),'expurgo não ap
 select teste.ok((select bool_and(rowsecurity) from pg_tables where schemaname='hospital'),'RLS habilitada em todas as tabelas');
 select teste.ok(not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='hospital' and has_function_privilege('anon',p.oid,'execute')),'helpers internos inacessíveis a anon');
+update hospital.configuracao set coleta_habilitada=false where id;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select teste.ok(public.ep_configuracao()->>'coleta_habilitada'='false','admin lê configuração com coleta desabilitada');
+select teste.ok(jsonb_array_length(public.ep_listar_setores())=6,'admin lê catálogo completo');
+select teste.ok(public.ep_questionario(:'pa')->>'versao'='2','admin lê questionário sem coleta pública');
+select teste.ok(public.ep_questionario(:'pa',1)->>'metrica'='rostos_5','admin lê histórico de versões');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
+select teste.erro('select public.ep_configuracao()','42501','configuração restrita ao superadmin');
+select teste.erro(format('select public.ep_questionario(%L)',:'rx'),'42501','questionário administrativo respeita setor');
+reset role;
+set role anon;
+select teste.erro('select public.ep_listar_setores()','42501','catálogo administrativo não é público');
+reset role;
+update hospital.configuracao set coleta_habilitada=true where id;
 select 'Contrato funcional concluído' resultado;
