@@ -6,7 +6,7 @@ services:
     name: fhdod-web
     runtime: node
     plan: 0.5c-512mb
-    branch: developer
+    branch: main
     numInstances: 1
     autoDeployTrigger: off
     buildCommand: npm ci --omit=dev --ignore-scripts && npm run check && npm test
@@ -36,7 +36,7 @@ services:
     name: fhdod-jobs
     runtime: node
     plan: 0.5c-512mb
-    branch: developer
+    branch: main
     numInstances: 1
     autoDeployTrigger: off
     buildCommand: npm ci --omit=dev --ignore-scripts && npm run check && npm test
