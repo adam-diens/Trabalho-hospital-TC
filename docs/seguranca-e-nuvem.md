@@ -1,5 +1,7 @@
 # Segurança e nuvem
 
+> Registro histórico do ambiente anterior; os avisos abaixo não foram verificados novamente no Supabase remoto nesta reconstrução. Para as permissões, instalação e limites do banco v2, consulte [docs/modelo-de-dados-e-requisitos.md](modelo-de-dados-e-requisitos.md). O banco v2 ainda não foi implantado e o backend atual ainda precisa ser adaptado.
+
 ## Conexão
 
 Banco Supabase ativo `Trabalho-hospital-TC`, projeto `sorjfxmcqfbxddgfdaka`, região us-west-2. O navegador chama a API Node local em `/api`; `backend/server.cjs` usa `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` de `.env` para acessar as APIs do projeto. A chave publishable não tem privilégios elevados e as regras de dados continuam no RLS/funções SQL. `.env` é ignorado pelo Git; `.env.example` contém somente valores ilustrativos. Não usamos chave secret/service role nem senha de banco no frontend. A RPC pública agregada inclui um elogio aprovado; o TV Wall ignora texto e mostra somente números. Nenhum contato foi consultado.

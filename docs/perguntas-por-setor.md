@@ -44,4 +44,4 @@ Cada setor possui cinco perguntas opcionais com avaliação numérica (1 a 10), 
 4. Como avalia a variedade das refeicoes?
 5. Como avalia a limpeza do refeitorio?
 
-As respostas opcionais ficam em respostas.jornada (JSONB), com uma chave por pergunta e valores inteiros de 1 a 10. Para bancos existentes, aplique `supabase/escala_jornada_10.sql` após os scripts de esquema e segurança; notas históricas são preservadas.
+Este catálogo descreve as perguntas do site anterior. O banco v2 usa `hospital.perguntas` e `hospital.avaliacoes_etapas`, com escala escolhida por pergunta e versões imutáveis. Os scripts SQL antigos foram removidos; consulte [instalação e modelo v2](modelo-de-dados-e-requisitos.md). A adaptação do site será feita separadamente.

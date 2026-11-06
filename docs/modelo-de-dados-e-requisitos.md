@@ -1,30 +1,58 @@
-# Modelo de dados e requisitos
+# Modelo de dados e requisitos — v2
 
-## Paradigma
+A instalação está no [README principal](../README.md#instalar-o-banco-no-supabase). O banco v2 ainda não foi aplicado ao Supabase nem integrado ao site.
 
-PostgreSQL relacional é apropriado porque respostas, setores, escalas, turnos, usuários/perfis e auditoria mantêm relações explícitas. Chaves, constraints, transações e índices apoiam integridade e agregações por setor + data + turno. JSONB é usado para avaliações opcionais da jornada, cuja forma varia, mantendo a resposta geral relacional.
+Todos os dados do domínio ficam em **`hospital`**. `public` contém apenas as RPCs `ep_*`; nenhuma tabela do domínio. `auth`, `storage`, `realtime`, `extensions` e outros schemas gerenciados pelo Supabase são infraestrutura, não fragmentação do modelo. Não os exclua. Não exponha `hospital` na Data API.
 
-## Estado observado
+## Modelo
 
-Projeto Supabase ativo **Trabalho-hospital-TC**, região us-west-2. Existem as oito tabelas abaixo com RLS habilitado, as RPCs referidas na arquitetura e 3 respostas já registradas. A RPC pública agregada devolve um elogio previamente marcado como publicável; o frontend usa apenas KPIs e descarta comentários. Nenhum telefone foi consultado. A captura enviada está desatualizada quanto à contagem.
+| Tabela | Responsabilidade |
+|---|---|
+| `setores` | Seis setores iniciais; desativação sem apagar histórico |
+| `perfis` | Conta Auth, um dos cinco papéis, setor obrigatório apenas para admin de setor |
+| `questionarios` | Versões por setor; uma publicação vigente |
+| `perguntas` | Uma geral obrigatória e até 20 etapas opcionais; escala individual |
+| `respostas` | Nota geral, escala, versão, canal e data/turno calculados no servidor |
+| `avaliacoes_etapas` | Notas opcionais normalizadas com FKs para a versão e pergunta corretas |
+| `manifestacoes` | Elogio, reclamação, sugestão ou solicitação de retorno; protocolo mesmo no anonimato |
+| `contatos` | Telefone opcional, consentimento e expurgo, separados do comentário |
+| `interacoes` | Histórico imutável de atendimento da Ouvidoria |
+| `equipes`, `escalas` | Uma equipe operacional por setor/data/turno; impede duplicação em indicadores |
+| `avisos_privacidade`, `configuracao` | Avisos versionados, habilitação da coleta e parâmetros operacionais |
+| `auditoria` | Leituras sensíveis, exportações e ações administrativas; sem telefone ou texto de relato |
+| `limites_coleta` | Contadores atômicos por janela fixa de 10 minutos; limpeza após um dia |
+| `tv_publicacoes` | Snapshots agregados seguros para a TV pública |
 
-| Tabela | Atributos centrais | Relações |
-|---|---|---|
-| `setores` | id, slug, nome, limite_ouvidoria, ativo | pai de perguntas, respostas, escala, perfis |
-| `respostas` | id, setor_id, criado_em, turno, nota, nps, jornada JSONB, tipo, comentario, publicavel, origem | pertence a setor; pode ter contato |
-| `contatos` | resposta_id, protocolo, telefone, aceite_lgpd, datas/estado Ouvidoria | um contato por resposta |
-| `perguntas` | id, setor_id, etapa, texto, obrigatoria, ordem, ativa | setor opcional |
-| `escala` | id, setor_id, data, turno, equipe | equipe por setor/data/turno |
-| `perfis` | user_id, nome, perfil enum, setor_id | identidade Supabase Auth; cinco papéis |
-| `auditoria` | id, user_id, acao, alvo, em | trilha administrativa |
-| `tentativas` | id, dispositivo, setor_id, em | rate limit/telemetria curta |
+### Regras de produto
 
-## Regra da pergunta ativa
+- Cada pergunta pode usar **`rostos_5` (1–5)** ou **`nota_10` (1–10)**. Nenhuma dessas escalas é NPS. Não há conversão artificial entre elas.
+- O formulário de cada setor tem exatamente uma geral obrigatória. Etapas, manifestação e telefone são opcionais.
+- Publicar alterações cria outra versão. Respostas anteriores preservam pergunta, escala e versão; perguntas e respostas não são editáveis.
+- O limiar de convite à Ouvidoria é definido por versão. Só orienta a interface; não bloqueia manifestação de nenhuma nota nem abre chamado sem escolha do paciente.
+- `ep_enviar_pesquisa` grava tudo em uma transação. Um telefone com consentimento pode abrir solicitação de retorno sem tornar o comentário obrigatório.
+- Etapas só aceitam inteiros dentro da escala e perguntas pertencentes à versão respondida.
+- Chave de envio UUID identifica uma submissão lógica. Retry com mesmo conteúdo devolve o mesmo resultado; reutilização com conteúdo diferente falha. Dois envios com chaves diferentes são respostas distintas.
+- O turno é o **horário de envio** em São Paulo: manhã 07h–12h59; tarde 13h–18h59; noite 19h–06h59. Não é prova do horário do atendimento. Associação à escala é indicativa e acompanha correções da escala vigente.
+- Médias, distribuição, tendência e satisfação ficam separadas por escala. Satisfação usa notas >=4 em 1–5 e >=8 em 1–10; não é NPS. Equipes só aparecem com pelo menos cinco respostas por escala.
+- A TV pública usa snapshots. Publicar exige pelo menos cinco novas respostas na escala e intervalo mínimo de 15 minutos. Snapshots expiram em 24h; não há comentário, equipe, contato ou resposta individual. O painel institucional consulta os dados atuais. Essa política de TV evita mostrar cada nota individual imediatamente.
+- Exportação aplica os mesmos filtros de setor, período, turno e equipe, com cursor UUID. Não contém comentário, telefone nem relatos. Para exportar com estabilidade durante coleta, o backend deve fixar o período em dias encerrados ou implementar um job de snapshot; páginas do dia corrente não são uma transação única.
+- Retenção de telefone começa no consentimento, inclusive em chamados abertos. Padrão técnico: 90 dias, configurável. O hospital deve aprovar o prazo. **Comentários e relatos também podem conter dados pessoais: o expurgo de telefone não anonimiza esses textos.**
 
-Cada setor possui no máximo uma pergunta ativa, garantida pelo índice parcial `perguntas_uma_ativa_por_setor_idx`. Perguntas substituídas são mantidas com `ativa=false`; cada resposta continua relacionada ao setor e guarda a nota de 1 a 5.
+## Matriz de acesso
 
-## Modelo lógico
+Todos os papéis abaixo exigem perfil ativo; cadastro no Auth sozinho não concede acesso. Admin de setor só opera seu setor ativo e é rejeitado ao solicitar outro setor.
 
-`setores 1—N respostas`; `respostas 1—0..1 contatos`; `setores 1—N escala`; `setores 1—N perguntas`; `setores 1—N perfis`; `auth.users 1—1 perfis`. Escala candidata por setor/data/turno não identifica culpabilidade individual.
+| Operação | Público | Super Admin | Admin setor | Gestão | Ouvidoria | Visualizador | Backend operacional |
+|---|---|---|---|---|---|---|---|
+| Setores/formulário/TV | Sim | Sim | Sim | Sim | Sim | Sim | — |
+| Enviar pesquisa | — | — | — | — | — | — | `service_role` |
+| Indicadores | — | Sim | Seu setor | Sim | Sim | Sem equipes | — |
+| Manifestações/comentários | — | Sim | Seu setor | Sim | Sim | — | — |
+| Telefone e histórico interno | — | Sim | — | — | Sim | — | — |
+| Atender/encerrar | — | Sim | — | — | Sim | — | — |
+| Exportar respostas analíticas | — | Sim | Seu setor | Sim | — | — | — |
+| Publicar questionário/equipes/escala | — | Sim | Seu setor | — | — | — | — |
+| Setores, perfis, configuração, auditoria | — | Sim | — | — | — | — | — |
+| Expurgar contato/publicar TV | — | — | — | — | — | — | `service_role` ou proprietário |
 
-`supabase/schema.sql` contém o DDL inicial e `supabase/correcoes_seguranca.sql` reúne funções e regras complementares. Esses scripts são uma base histórica e não representam necessariamente todas as alterações do banco conectado; revise antes de executar.
+RLS em todas as tabelas, sem policies/grants para acesso direto. RPCs verificam perfil no próprio banco. `SECURITY DEFINER` tem `search_path=''` e referências qualificadas. Helpers não são executáveis por clientes; RPCs têm grants explícitos. A chave `service_role` é um segredo poderoso do Supabase: usar somente no servidor, não em `.js` público, celular ou tablet.

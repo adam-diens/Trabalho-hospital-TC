@@ -16,4 +16,4 @@
 14. [Roteiro de pitch](pitch.md)
 15. [OpenAPI](../backend/openapi.yaml) e [Swagger UI local](api.html)
 
-**Estado:** frontend conectado à API Node do projeto; o backend usa Supabase `Trabalho-hospital-TC` para Auth e persistência. A migration de pergunta única e administração por setor foi aplicada; o painel continua restrito a contas com perfil.
+**Estado em 06/11/2026:** banco v2 implementado e testado localmente, sem aplicação remota. Site, backend e OpenAPI ainda representam a versão anterior. Documentos de UX/manual/backend descrevem esse site; para o novo banco, as fontes atuais são as migrations, o modelo de dados e o contrato v2 na arquitetura do backend. Referências históricas a inspeções do Supabase não representam uma verificação remota atual.

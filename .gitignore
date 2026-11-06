@@ -1,8 +1,43 @@
+# Configuração local e segredos (preserva o modelo versionado)
 .env
 .env.*
 !.env.example
+.pgpass
+pgpass.conf
+/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependências, builds e artefatos gerados
 node_modules/
 dist/
 coverage/
+/output/
+/tmp/
+/temp/
+*.log
+*.pid
+*.pid.lock
+
+# Estado local da CLI Supabase e backups de banco
+/supabase/.temp/
+/supabase/.branches/
+*.dump
+*.backup
+*.sql.gz
+/backups/
+/supabase/backups/
+
+# Sistema operacional e preferências locais dos editores
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.example.json

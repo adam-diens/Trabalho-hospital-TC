@@ -1,0 +1,12 @@
+# SQL/JS/JSON e documentos têm finais de linha previsíveis em qualquer sistema.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

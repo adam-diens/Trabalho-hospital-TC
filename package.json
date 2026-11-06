@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "node backend/server.cjs",
     "start": "node backend/server.cjs",
-    "test": "node tests/regression.cjs"
+    "test": "node tests/regression.cjs",
+    "test:db": "node tests/database/run.cjs",
+    "db:bundle": "node scripts/build-database.cjs"
   }
 }

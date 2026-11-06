@@ -1,13 +1,14 @@
-# Padrões do banco de dados
+# Padrões de banco — v2
 
-- PostgreSQL; tabelas no plural, `snake_case` e nomes em português.
-- PKs/FKs tipadas: `id`, `setor_id`, `resposta_id`; perfis vinculam `auth.users.id`.
-- Timestamp da resposta chama-se `criado_em` (`timestamptz`, UTC); escala usa `data` (`date`) e `turno`.
-- Nota `smallint` com `CHECK (1..5)`; categorias de manifestação limitadas a `elogio`, `reclamacao`, `sugestao`.
-- Jornada opcional armazenada em JSONB; telefone fica em `contatos`, separado da resposta analítica.
-- Dados analíticos devem usar constraints, consulta parametrizada, transação e migração revisável. Nunca concatenar texto de entrada para formar SQL.
-- RLS está habilitado em todas as tabelas; respostas/contatos/auditoria/tentativas são operadas pelas RPCs e não por acesso direto do browser.
-- Índices recomendados para filtros por resposta `(setor_id, criado_em)` e escala `(setor_id, data, turno)`. O advisor ainda aponta FKs sem índice em `escala.setor_id`, `perfis.setor_id`, `perguntas.setor_id`.
-- O advisor também sinaliza índices ainda não usados em `respostas`/`tentativas`; com poucos registros isso não justifica removê-los sem plano de execução e carga representativa.
-- A coluna `nps` existente é derivada da nota 1–5 no schema atual. Como a escala facial não mede NPS, o site não apresenta nem exporta esse campo como NPS; revisar a coluna no próximo ciclo de migração.
-- Retenção e anonimização devem ser rotina documentada. Existe função de expurgo de telefone após fechamento; prazo final deve ser aprovado pela Fundação.
+- PostgreSQL 15+ / Supabase; um schema de domínio `hospital`, RPCs `public.ep_*`, infraestrutura Supabase preservada.
+- Tabelas no plural, nomes em português, `snake_case`; UUIDs de domínio e FKs explícitas. Protocolo/auditoria/interações usam identities sem truncamento.
+- Migrations ordenadas em `supabase/migrations/`. Sem scripts paralelos redefinindo as mesmas funções. Fonte única; instalador gerado por `npm run db:bundle`.
+- Timestamps `timestamptz`; data/turno da coleta calculados em `America/Sao_Paulo`, sem confiar no relógio do cliente.
+- Notas inteiras com `CHECK` por escala; respostas e etapas preservam escala e versão. JSON de entrada é validado e convertido para relações normalizadas.
+- Uma pergunta geral por versão publicada, uma versão vigente por setor, uma escala por setor/data/turno. FKs compostas validam relacionamentos cruzados.
+- Coleta atômica e idempotente; locks na ordem setor → questionário para publicação/coleta, advisory lock para chave de envio e contadores por `UPSERT` atômico.
+- RLS em todas as tabelas internas e nenhum grant direto para clientes, inclusive papel operacional. Funções verificam perfil ativo e setor; `NULL` nunca concede acesso.
+- RPCs `SECURITY DEFINER` com `search_path=''`, nomes qualificados e grants por assinatura. Não expor helpers nem schema `hospital` na Data API.
+- `auth.users` é gerenciado pelo Supabase; não criar cópia de senhas ou excluir schemas nativos. Exclusão de conta com referências é bloqueada; desativar perfil preserva histórico.
+- Auditoria/histórico/respostas/perguntas são imutáveis pela API. Telefone separado com consentimento versionado e expurgo operacional. Texto livre requer política de retenção própria antes de produção.
+- Testar integridade, autorizações, isolamento e concorrência em PostgreSQL real com `npm run test:db`. Testes com Auth simulado não substituem homologação JWT/PostgREST.

@@ -1,48 +1,51 @@
 # Trabalho-hospital-TC
 
-Projeto acadêmico do Curso Técnico em Informática Integrado ao Ensino Médio da Escola Técnica Estadual Monteiro Lobato, desenvolvido por Theo Keller Paiva, Adam Romão Dientsmann e Ygor Marcadenti Squena conforme as requisições da Fundação Hospitalar Dr. Oswaldo Diesel, de Três Coroas.
+Sistema de pesquisa de satisfação dos pacientes da Fundação Hospitalar Dr. Oswaldo Diesel, de Três Coroas, com pesquisa por setor, manifestações à Ouvidoria, painel de gestão e TV Wall.
 
-Aplicação para coletar a satisfação dos pacientes do hospital. Contato: [theokpaiva@gmail.com](mailto:theokpaiva@gmail.com).
+Projeto do Curso Técnico em Informática Integrado ao Ensino Médio da Escola Técnica Estadual Monteiro Lobato, desenvolvido por **Theo Keller Paiva, Adam Romão Dientsmann e Ygor Marcadenti Squena**. Contato: [theokpaiva@gmail.com](mailto:theokpaiva@gmail.com).
 
 ## Executar localmente
 
-1. Instale Node.js 18 ou superior.
-2. Copie `.env.example` para `.env` e configure `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` no painel do Supabase.
-3. Inicie a aplicação com `npm run dev` ou `node backend/server.cjs`.
-4. Acesse `http://127.0.0.1:5173`.
+1. Instale Node.js 18+.
+2. Copie `.env.example` para `.env` e configure `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`.
+3. Execute `npm run dev` e acesse [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-A aplicação inclui frontend responsivo e API própria em Node.js. A API encaminha somente rotas permitidas ao Supabase; credenciais administrativas não devem ser colocadas no navegador. O arquivo `.env` contém segredos locais e não deve ser commitado.
+**Estado atual:** o site ainda usa o contrato anterior do banco. O banco v2 foi reconstruído e testado localmente, mas sua aplicação no Supabase e integração com o site estão pendentes. O link público definitivo ainda não foi informado.
 
-## Recursos
+## Manual de uso
 
-- Pesquisa rápida: apenas a avaliação geral, com cinco rostos do melhor para o pior.
-- Pesquisa completa: avaliação geral, etapas opcionais com notas de 1 a 10 e manifestação à Ouvidoria. É possível concluir sem percorrer todas as etapas.
-- QR Codes distintos por setor para celular (`?setor=pa&modo=celular`) e tablet (`?setor=pa&modo=tablet`). Ambos permitem escolher a outra jornada. No tablet, o agradecimento reinicia a pesquisa após oito segundos.
-- Painel autenticado com perfis e indicadores, TV Wall público e exportação compatível com Excel.
-- Persistência e autenticação no Supabase.
+- **Paciente:** abra o link ou QR Code, escolha o setor e a pesquisa rápida ou completa. Responda à nota geral; as outras etapas são opcionais. Se desejar, deixe uma manifestação e telefone para retorno, com consentimento. Confira o agradecimento ao finalizar.
+- **Gestão:** entre em **Menu → Acesso da equipe** com uma conta autorizada. Abra **Gestão e gráficos**, use os filtros de período, setor e turno e consulte os indicadores e manifestações. **Exportar Excel** baixa um CSV; na versão atual, a exportação considera apenas o filtro de setor. Saia da conta ao terminar.
+- **QR Codes:** a equipe autorizada pode abrir **QR Codes** e copiar o link do setor para celular ou tablet. Use o endereço definitivo antes de imprimir.
+- **TV Wall:** abra **Menu → TV Wall** para exibir os indicadores agregados. A tela atual atualiza a cada minuto.
 
-## Atualização da escala e acesso
+O atendimento completo da Ouvidoria e o acesso aos cinco perfis ainda dependem da integração com o banco v2.
 
-Em bancos existentes, execute [escala_jornada_10.sql](supabase/escala_jornada_10.sql) no SQL Editor do Supabase, após `schema.sql` e `correcoes_seguranca.sql`. Isso libera as notas inteiras de 1 a 10 nas etapas opcionais, preservando os dados anteriores. A avaliação geral continua de 1 a 5. O script não é executado automaticamente ao iniciar o servidor.
+## Registro do processo e justificativas
 
-A navegação pública oferece pesquisa e TV Wall (dentro do menu). O acesso da equipe também fica no menu. Gestão, gráficos e QR Codes exigem perfil `admin_setor`, `gestao` ou `super_admin`; a API verifica a sessão e o perfil no Supabase, além das regras do banco. O cadastro sozinho não concede acesso. A gestão funciona também no celular, e a pesquisa funciona também no computador. Em telas grandes, uma sessão de gestão válida abre o painel por padrão.
+1. **Análise:** foram revisados o enunciado, o projeto atual e as imagens do protótipo no Figma para identificar requisitos e pendências.
+2. **Pesquisa simples:** uma pergunta obrigatória no início e etapas opcionais reduzem o esforço e permitem participar mesmo com pouco tempo. Celular e tablet oferecem alternativas de acesso.
+3. **Privacidade:** anonimato como opção padrão e telefone opcional com consentimento permitem avaliar sem exigir identificação.
+4. **Banco reconstruído:** scripts sobrepostos e falhas de integração e autorização motivaram a organização em migrations, com dados no schema `hospital` e permissões verificadas no banco.
+5. **Escalas configuráveis:** o banco v2 permite escolher rostinhos 1–5 ou nota 1–10 por pergunta. Versões preservam respostas antigas e indicadores separados evitam misturar escalas diferentes.
+6. **Equipes e indicadores:** a associação à escala é indicativa, sem atribuição de culpa individual. A divulgação pública usa dados agregados.
+7. **Validação:** os testes do site passaram com Supabase simulado. O banco passou por 115 verificações funcionais, sete de catálogo e testes concorrentes em PostgreSQL real. A homologação remota e a adaptação do site são as próximas etapas.
 
-## Validação
+Ferramentas utilizadas: HTML, CSS, JavaScript, Node.js, Supabase/PostgreSQL, Git, Edge e Figma como referência visual.
 
-Execute `npm test` (`npm.cmd test` no PowerShell se a política de scripts bloquear o npm). Os testes usam um Supabase simulado e o Edge em modo headless, sem gravar dados reais. Defina `EDGE_BIN` caso o executável esteja em outro caminho. Cobrem permissões da API, seleção do primeiro setor, pesquisa rápida, escala de 1 a 10, consentimento sem perda dos campos, telefone, QR Codes e ausência de rolagem horizontal entre 320 e 1440 pixels.
+## Instalar o banco no Supabase
 
-## Documentação
+1. Em um projeto limpo, execute `npm run db:bundle` e rode o conteúdo gerado em `output/database/instalar.sql` no SQL Editor.
+2. Execute [verificar_instalacao.sql](supabase/operacoes/verificar_instalacao.sql); todos os resultados devem ser `true`.
+3. Crie a conta do administrador em Authentication, ajuste UUID e nome em [primeiro_admin.sql](supabase/operacoes/primeiro_admin.sql) e execute esse script.
 
-- [Índice dos documentos](docs/README.md)
-- [Requisitos](docs/requisitos.md)
-- [Arquitetura do backend](docs/arquitetura-backend.md)
-- [Especificação OpenAPI](backend/openapi.yaml)
-- [Visualizador interativo da API](docs/api.html)
-- Scripts SQL mantidos em `supabase/` para configurar o banco; revise o estado do projeto antes de aplicá-los.
-- [Modelo de variáveis de ambiente](.env.example)
+Preserve os schemas nativos do Supabase e mantenha `hospital` fora dos schemas expostos na API. Não aplique o instalador e as migrations separadamente no mesmo banco. A coleta v2 começa desabilitada e exige integração do site e configuração do aviso de privacidade antes do uso.
 
-O quadro Kanban ainda não foi disponibilizado; o link deve ser incluído aqui quando criado.
+## Testes e repositório
 
-## Aviso
+- `npm test`: testes do site; requer Node.js 22+ e Edge (`EDGE_BIN` permite outro caminho).
+- `npm run test:db`: testes do banco; requer PostgreSQL 15+ (`PG_BIN` informa a pasta dos executáveis).
 
-Projeto acadêmico. Não use com dados reais de pacientes sem revisão institucional de segurança, privacidade, consentimento e operação. Indicadores de demonstração não devem ser usados para decisões clínicas ou disciplinares.
+Todos os testes ficam em `tests/`; não execute os SQLs dessa pasta no Supabase. No PowerShell, use `npm.cmd` se necessário.
+
+O `.gitignore` exclui segredos, backups, dependências e arquivos gerados em `output/`. Migrations e testes permanecem versionados. O projeto ainda precisa de homologação antes do uso com dados reais.

@@ -1,5 +1,7 @@
 # Manual de uso
 
+> Este manual descreve o site anterior. O banco v2 está em reconstrução independente; use [a documentação do banco](modelo-de-dados-e-requisitos.md) para instalação. A API e o manual do usuário serão adaptados ao remodelar o site.
+
 ## Iniciar a aplicação
 
 Configure `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` no `.env` a partir de `.env.example` e execute `node backend/server.cjs`. Abra `http://127.0.0.1:5173`. O frontend conversa com o backend local em `/api`; o Supabase mantém autenticação e persistência.
