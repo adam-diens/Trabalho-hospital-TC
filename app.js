@@ -104,7 +104,17 @@ function toast(message, error = false) {
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => node.classList.remove('show'), 3600);
 }
+const canManage = () => !!state.session && ['super_admin', 'admin_setor', 'gestao'].includes(state.profile?.perfil);
+function syncNavigation() {
+  $$('[data-management]').forEach(node => node.classList.toggle('hidden', !canManage()));
+  $('#staff-login').classList.toggle('hidden', !!state.session);
+  $('#staff-logout').classList.toggle('hidden', !state.session);
+}
 function setView(view) {
+  if (!['patient', 'dashboard', 'qrs', 'wall'].includes(view)) view = 'patient';
+  if (['dashboard', 'qrs'].includes(view) && !canManage()) view = 'patient';
+  const menu = $('#site-menu'); if (menu) menu.open = false;
+  clearInterval(state.wallTimer);
   state.view = view;
   $$('.view').forEach(section => section.classList.toggle('active', section.id === view));
   $$('.nav-btn').forEach(button => button.classList.toggle('active', button.dataset.view === view));
@@ -135,7 +145,7 @@ async function api(path, { method = 'GET', body, auth = false } = {}) {
   const text = await response.text();
   let result = null;
   try { result = text ? JSON.parse(text) : null; } catch { result = text; }
-  if (!response.ok) throw new Error(result?.message || result?.msg || `Falha na API (${response.status}).`);
+  if (!response.ok) throw new Error(result?.message || result?.error || result?.msg || `Falha na API (${response.status}).`);
   return result;
 }
 const rpc = (name, body = {}, auth = false) => api(`/rest/v1/rpc/${name}`, { method: 'POST', body, auth });
@@ -149,12 +159,16 @@ function signOut() {
   saveSession(null); state.profile = null; state.dashboard = null;
   $('#admin-tools')?.classList.add('hidden');
   if ($('#admin-tools')) $('#admin-tools').innerHTML = '';
-  setView('dashboard');
+  ['#kpis', '#trend-chart', '#sector-bars', '#rating-dist', '#manifestations-list'].forEach(selector => { $(selector).innerHTML = ''; });
+  state.filters = { period: 'all', setor: 'all', shift: 'all' };
+  $('#filter-sector').innerHTML = '<option value="all">Todos os setores</option>';
+  $('#filter-sector').disabled = false;
+  syncNavigation(); setView('patient');
 }
 
 /* 4. PESQUISA DO PACIENTE */
 function changeSurveySector(slug) {
-  if (!slug || slug === state.survey.setor) return;
+  if (!SETORES.some(item => item.slug === slug)) return;
   const params = new URLSearchParams(location.search);
   params.set('setor', slug);
   history.replaceState(null, '', `${location.pathname}?${params.toString()}${location.hash}`);
@@ -194,17 +208,21 @@ function renderSurvey() {
   const etapaAtual = etapas[etapasSelecionadas[survey.etapaIndex]];
   const stageProgress = etapasSelecionadas.length ? Math.round(30 + ((survey.etapaIndex + 1) / (etapasSelecionadas.length + 1)) * 48) : 30;
   const progress = ({ welcome: 0, rating: 15, 'journey-rating': stageProgress, contactInvite: 82, comment: 89, contact: 96, thanks: 100 })[survey.step] || 0;
-  const faces = (action, selected) => `<div class="faces">${NOTAS.map(note => `<button class="face ${selected === note.valor ? 'selected' : ''}" data-action="${action}" data-value="${note.valor}" aria-label="${note.texto}, nota ${note.valor}"><span>${note.emoji}</span><small>${note.texto}</small></button>`).join('')}</div>`;
+  const faces = (action, selected) => `<div class="faces">${[...NOTAS].reverse().map(note => `<button class="face ${selected === note.valor ? 'selected' : ''}" data-action="${action}" data-value="${note.valor}" aria-label="${note.texto}, nota ${note.valor}"><span>${note.emoji}</span><small>${note.texto}</small></button>`).join('')}</div>`;
   let content = `<div class="step-count">${escapeHTML(setor.nome)}${progress ? ` · ${progress}%` : ''}</div>`;
   if (survey.step !== 'welcome' && survey.step !== 'thanks') content += `<div class="progress"><span style="width:${progress}%"></span></div>`;
-  if (survey.step === 'welcome') content += `<div class="welcome-mark">♥</div><h1>Como foi seu atendimento?</h1><p class="lead">Uma avaliação geral obrigatória e até ${etapas.length} perguntas opcionais sobre as etapas que você viveu.</p><button class="button primary full" data-action="survey-start">Começar pesquisa <span aria-hidden="true">→</span></button><div class="survey-footer">Você pode responder sem se identificar.</div>`;
+  if (survey.step === 'welcome') content += `<div class="welcome-mark">♥</div><h1>Como foi seu atendimento?</h1><p class="lead">Escolha como deseja participar. Sua opinião faz diferença no nosso cuidado.</p><div class="survey-modes" role="group" aria-label="Tempo disponível"><button class="mode-option ${survey.mode === 'quick' ? 'selected' : ''}" data-action="survey-mode" data-value="quick" aria-pressed="${survey.mode === 'quick'}"><b>Estou com pouco tempo</b><span>Só a avaliação geral · poucos segundos</span></button><button class="mode-option ${survey.mode === 'complete' ? 'selected' : ''}" data-action="survey-mode" data-value="complete" aria-pressed="${survey.mode === 'complete'}"><b>Posso contar mais</b><span>Etapas do atendimento e Ouvidoria · opcional</span></button></div><button class="button primary full" data-action="survey-start">Começar pesquisa <span aria-hidden="true">→</span></button><div class="survey-footer">Você pode responder sem se identificar.</div>`;
   if (survey.step === 'rating') content += `<span class="eyebrow">AVALIAÇÃO GERAL · OBRIGATÓRIA</span><h1>${escapeHTML(survey.pergunta || 'Como foi seu atendimento neste setor?')}</h1><p class="lead">Toque em um rostinho para registrar sua avaliação.</p>${faces('survey-rating', survey.nota)}`;
-  if (survey.step === 'journey-rating' && etapaAtual) content += `<span class="eyebrow">PERGUNTA OPCIONAL ${survey.etapaIndex + 1} DE ${etapasSelecionadas.length}</span><h1>${escapeHTML(etapaAtual.pergunta)}</h1><p class="lead">Avalie com um rostinho ou pule esta pergunta.</p>${faces('survey-stage-rating', survey.jornada[etapaAtual.chave])}<button class="optional-skip" data-action="survey-stage-skip">Pular esta pergunta</button>`;
+  if (survey.step === 'journey-rating' && etapaAtual) content += `<span class="eyebrow">PERGUNTA OPCIONAL ${survey.etapaIndex + 1} DE ${etapasSelecionadas.length}</span><h1>${escapeHTML(etapaAtual.pergunta)}</h1><p class="lead">Escolha uma nota de 1 (péssimo) a 10 (ótimo).</p><div class="number-ratings" role="group" aria-label="Nota de 1 a 10">${Array.from({length: 10}, (_, i) => `<button class="number-rating" data-action="survey-stage-rating" data-value="${i + 1}" aria-label="Nota ${i + 1} de 10">${i + 1}</button>`).join('')}</div><button class="optional-skip" data-action="survey-stage-skip">Pular esta pergunta</button><button class="optional-skip" data-action="survey-finish">Concluir agora</button>`;
   if (survey.step === 'contactInvite') content += `<div class="welcome-mark warm">♡</div><h1>Sentimos muito. Quer conversar com a Ouvidoria?</h1><p class="lead">Você pode pedir um retorno ou continuar sem deixar seus dados.</p><button class="button primary full" data-action="contact-yes">Quero receber um retorno</button><button class="button secondary full" data-action="contact-no">Continuar sem identificação</button>`;
   if (survey.step === 'comment') content += `<span class="eyebrow">OPCIONAL</span><h1>Quer compartilhar mais alguma coisa?</h1><p class="lead">Escolha elogio, reclamação ou sugestão. Não informe dados de saúde ou documentos pessoais.</p><label class="field-label">Tipo de manifestação<select id="survey-type"><option value="elogio">Elogio</option><option value="reclamacao">Reclamação</option><option value="sugestao">Sugestão</option></select></label><label class="field-label">Comentário<textarea id="survey-comment" maxlength="1000" rows="4" placeholder="Escreva aqui (opcional)"></textarea></label><button class="button primary full" data-action="survey-comment">${survey.desejaRetorno ? 'Continuar' : 'Enviar resposta'}</button><button class="optional-skip" data-action="survey-comment-skip">Pular comentário</button>`;
-  if (survey.step === 'contact') content += `<span class="eyebrow">OPCIONAL · OUVIDORIA</span><h1>Como a Ouvidoria pode falar com você?</h1><p class="lead">Seu telefone é opcional e ficará visível somente para a Ouvidoria.</p><label class="field-label">Telefone<input id="survey-phone" type="tel" autocomplete="tel" placeholder="(51) 99999-9999"></label><label class="field-label">Observação<textarea id="survey-note" maxlength="500" rows="2"></textarea></label><label class="check-line"><input id="survey-consent" type="checkbox"> Autorizo o uso do meu telefone para retorno da Ouvidoria.</label><button class="button primary full" data-action="contact-submit">Enviar solicitação</button><button class="optional-skip" data-action="contact-skip">Continuar sem telefone</button>`;
+  if (survey.step === 'contact') content += `<span class="eyebrow">OPCIONAL · OUVIDORIA</span><h1>Como a Ouvidoria pode falar com você?</h1><p class="lead">Seu telefone é opcional e ficará visível somente para a Ouvidoria.</p><label class="field-label">Telefone<input id="survey-phone" type="tel" inputmode="tel" maxlength="15" aria-describedby="survey-error" autocomplete="tel" placeholder="(51) 99999-9999"></label><label class="field-label">Observação<textarea id="survey-note" maxlength="500" rows="2"></textarea></label><label class="check-line"><input aria-describedby="survey-error" id="survey-consent" type="checkbox"> Autorizo o uso do meu telefone para retorno da Ouvidoria.</label><button class="button primary full" data-action="contact-submit">Enviar solicitação</button><button class="optional-skip" data-action="contact-skip">Continuar sem telefone</button>`;
   if (survey.step === 'thanks') content += `<div class="success-icon">✓</div><h1>Obrigado por compartilhar sua experiência.</h1><p class="lead">Sua opinião ajuda a Fundação a melhorar o cuidado.</p>${survey.protocol ? `<div class="survey-highlight">Protocolo de atendimento: <strong>${escapeHTML(survey.protocol)}</strong></div>` : ''}<button class="button secondary full" data-action="survey-new">Concluir</button>`;
-  root.innerHTML = content;
+  root.innerHTML = content + '<p id="survey-error" class="login-error" role="alert" tabindex="-1"></p>';
+  if (survey.step === 'thanks' && document.body.classList.contains('tablet-kiosk')) {
+    clearTimeout(state.kioskTimer);
+    state.kioskTimer = setTimeout(() => newSurvey(), 8000);
+  }
   if (survey.step === 'welcome') {
     root.querySelector('[data-action="survey-start"]')?.before(createSectorPicker('Setor da pesquisa'));
     const heading = root.querySelector('h1');
@@ -218,32 +236,42 @@ function renderSurvey() {
   }
 }
 async function newSurvey(requested = new URLSearchParams(location.search).get('setor')) {
+  clearTimeout(state.kioskTimer);
   const setor = setorPorSlug(requested);
   const sectorSelected = SETORES.some(item => item.slug === requested);
-  state.survey = { step: 'welcome', setor: setor.slug, sectorSelected, setorId: null, pergunta: `Como foi o atendimento no setor ${setor.nome}?`, respostaId: null, jornada: {}, etapasSelecionadas: [], etapaIndex: 0, nota: null, desejaRetorno: false };
+  state.survey = { step: 'welcome', setor: setor.slug, sectorSelected, setorId: null, pergunta: `Como foi o atendimento no setor ${setor.nome}?`, respostaId: null, jornada: {}, etapasSelecionadas: [], etapaIndex: 0, nota: null, desejaRetorno: false, mode: new URLSearchParams(location.search).get('modo') === 'tablet' ? 'quick' : 'complete' };
+  const survey = state.survey;
   renderSurvey();
   try {
     const sectors = await api(`/rest/v1/setores?select=id,slug,nome&slug=eq.${encodeURIComponent(setor.slug)}&ativo=eq.true&limit=1`);
     const currentSector = sectors?.[0];
     if (!currentSector) throw new Error('Setor indisponível.');
-    state.survey.setorId = currentSector.id;
+    if (state.survey !== survey) return;
+    survey.setorId = currentSector.id;
     const questions = await api(`/rest/v1/perguntas?select=etapa,texto&setor_id=eq.${currentSector.id}&ativa=eq.true&order=ordem.asc&limit=1`);
-    if (questions?.[0]?.texto) state.survey.pergunta = questions[0].texto;
+    if (state.survey !== survey) return;
+    if (questions?.[0]?.texto) survey.pergunta = questions[0].texto;
   } catch (error) {
-    state.survey.loadError = error.message;
+    if (state.survey !== survey) return;
+    survey.loadError = error.message;
   }
-  renderSurvey();
+  if (state.survey === survey && survey.step === 'welcome') renderSurvey();
 }
 async function handleSurvey(action, value) {
   const survey = state.survey;
-  if (action === 'survey-start') survey.step = 'rating';
+  if (action === 'survey-mode' && ['quick', 'complete'].includes(value)) survey.mode = value;
+  if (action === 'survey-start') {
+    if (!survey.sectorSelected) throw new Error('Selecione o setor para continuar.');
+    survey.step = 'rating';
+  }
+  if (action === 'survey-finish') survey.step = 'thanks';
   if (action === 'survey-rating') {
     survey.nota = Number(value);
     const source = new URLSearchParams(location.search).get('modo') === 'tablet' ? 'tablet' : 'qr';
     survey.respostaId = await rpc('registrar_resposta', { p_setor: survey.setor, p_nota: survey.nota, p_origem: source, p_dispositivo: deviceId() });
     survey.etapasSelecionadas = etapasDisponiveis(survey).map(etapa => etapa.index);
     survey.etapaIndex = 0;
-    survey.step = survey.etapasSelecionadas.length ? 'journey-rating' : (survey.nota <= 2 ? 'contactInvite' : 'comment');
+    survey.step = survey.mode === 'quick' ? 'thanks' : survey.etapasSelecionadas.length ? 'journey-rating' : (survey.nota <= 2 ? 'contactInvite' : 'comment');
   }
   if (action === 'survey-stage-rating' || action === 'survey-stage-skip') {
     const stageIndex = survey.etapasSelecionadas[survey.etapaIndex];
@@ -273,7 +301,7 @@ async function handleSurvey(action, value) {
   }
   if (action === 'contact-submit') {
     const phone = $('#survey-phone').value.trim();
-    if (phone.replace(/\D/g, '').length < 10) throw new Error('Informe um telefone com DDD para solicitar retorno.');
+    if (![10, 11].includes(phone.replace(/\D/g, '').length)) throw new Error('Informe um telefone com DDD para solicitar retorno.');
     if (!$('#survey-consent').checked) throw new Error('Marque o consentimento para enviar seus dados à Ouvidoria.');
     survey.protocol = await rpc('registrar_contato', { p_id: survey.respostaId, p_telefone: phone, p_obs: $('#survey-note').value.trim() || null, p_aceite: true });
     survey.step = 'thanks';
@@ -294,20 +322,26 @@ function renderKpis(kpis = {}) {
 }
 async function loadDashboard() {
   const banner = $('#auth-message');
-  if (!state.session) { if (banner) banner.textContent = 'Entre com sua conta institucional para acessar os indicadores.'; $('#login-open')?.classList.remove('hidden'); $('#logout-btn')?.classList.add('hidden'); $('#admin-tools')?.classList.add('hidden'); return; }
+  if (!canManage()) { setView('patient'); return; }
+  const userId = state.session.user.id;
+  const requestId = state.dashboardRequest = (state.dashboardRequest || 0) + 1;
+  const isCurrent = () => state.session?.user?.id === userId && state.dashboardRequest === requestId && canManage();
   try {
     state.profile = await loadCurrentProfile();
-    if (!state.profile) {
+    if (!canManage()) {
+      syncNavigation(); setView('patient');
       $('#admin-tools')?.classList.add('hidden');
       throw new Error('Esta conta ainda não recebeu um perfil de acesso. Peça ao superadministrador para liberar um setor.');
     }
     if (state.profile.perfil === 'admin_setor') state.filters.setor = state.profile.setor?.slug || 'all';
     await renderAdminTools();
+    if (!isCurrent()) return;
     const summary = await rpc('painel_resumo', selectedFilters(), true);
+    if (!isCurrent()) return;
     state.dashboard = summary;
     const sectorFilter = $('#filter-sector');
     if (sectorFilter && sectorFilter.options.length <= 1) {
-      const visibleSectors = state.profile.perfil === 'super_admin'
+      const visibleSectors = ['super_admin', 'gestao'].includes(state.profile.perfil)
         ? SETORES
         : state.profile.perfil === 'admin_setor' && state.profile.setor ? [state.profile.setor] : [];
       sectorFilter.insertAdjacentHTML('beforeend', visibleSectors.map(sector => `<option value="${sector.slug}">${escapeHTML(sector.nome)}</option>`).join(''));
@@ -323,6 +357,7 @@ async function loadDashboard() {
     renderSectors(summary.por_setor || []);
     renderRating(summary.distribuicao || summary.notas || []);
     const manifests = await rpc('listar_manifestacoes', { p_setor: state.filters.setor === 'all' ? null : state.filters.setor }, true);
+    if (!isCurrent()) return;
     renderManifestations(Array.isArray(manifests) ? manifests : []);
     $('#updated-at') && ($('#updated-at').textContent = `Atualizado em ${new Date().toLocaleTimeString('pt-BR')}`);
   } catch (error) { if (banner) banner.textContent = `Não foi possível carregar o painel: ${error.message}`; }
@@ -414,9 +449,10 @@ function renderSectors(rows) {
 }
 function renderRating(rows) {
   const root = $('#rating-dist'); if (!root) return;
+  const total = rows.reduce((sum, item) => sum + Number(item.n || item.total || item.quantidade || 0), 0);
   root.innerHTML = [5, 4, 3, 2, 1].map(note => {
     const row = rows.find(item => Number(item.nota || item.rating) === note); const count = Number(row?.n || row?.total || row?.quantidade || 0);
-    return `<div class="rating-row"><span>${note} ${NOTAS[note - 1].emoji}</span><div class="bar-track"><i style="width:${Math.min(100, count)}%"></i></div><b>${count}</b></div>`;
+    return `<div class="rating-row"><span>${note} ${NOTAS[note - 1].emoji}</span><div class="bar-track"><i style="width:${total ? Math.min(100, count / total * 100) : 0}%"></i></div><b>${count}</b></div>`;
   }).join('');
 }
 function renderManifestations(rows) {
@@ -427,7 +463,13 @@ function openLogin() { $('#login-dialog')?.showModal(); }
 async function submitLogin(event) {
   event.preventDefault();
   const error = $('#login-error'); if (error) error.textContent = '';
-  try { await signIn($('#login-email').value, $('#login-password').value); $('#login-dialog')?.close(); await loadDashboard(); }
+  try {
+    await signIn($('#login-email').value, $('#login-password').value);
+    state.profile = await loadCurrentProfile(); syncNavigation();
+    $('#login-dialog')?.close(); $('#login-form').reset();
+    if (canManage()) setView('dashboard');
+    else { setView('patient'); toast('Conta sem permissão de gestão. Você pode responder à pesquisa e acessar o TV Wall.'); }
+  }
   catch (cause) { if (error) error.textContent = cause.message; }
 }
 async function submitSignup(event) {
@@ -441,7 +483,7 @@ async function submitSignup(event) {
     $('#signup-form').reset();
     if (result?.access_token) {
       saveSession(result); state.profile = null; $('#signup-dialog')?.close();
-      $('#login-dialog')?.close(); await loadDashboard();
+      $('#login-dialog')?.close(); syncNavigation(); setView('patient');
       toast('Conta criada. Aguarde o superadministrador liberar seu perfil.');
     } else if (status) {
       status.textContent = 'Cadastro iniciado. Confirme o e-mail, se solicitado, e aguarde o superadministrador liberar seu perfil e setor.';
@@ -461,11 +503,11 @@ async function exportResponses() {
 function renderQrs() {
   const root = $('#qr-grid'); if (!root) return;
   const base = `${location.origin}${location.pathname}`;
-  root.innerHTML = SETORES.map(sector => {
-    const url = `${base}?setor=${encodeURIComponent(sector.slug)}`;
+  root.innerHTML = SETORES.flatMap(sector => ['celular', 'tablet'].map(mode => {
+    const url = `${base}?setor=${encodeURIComponent(sector.slug)}&modo=${mode}`;
     const image = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
-    return `<article class="qr-card"><h2>${escapeHTML(sector.nome)}</h2><img src="${image}" alt="QR Code da pesquisa: ${escapeHTML(sector.nome)}" loading="lazy"><p>${escapeHTML(url)}</p><button class="button secondary" data-action="copy-link" data-value="${escapeHTML(url)}">Copiar link</button></article>`;
-  }).join('');
+    return `<article class="qr-card"><h2>${escapeHTML(sector.nome)}</h2><span class="tag">${mode === 'tablet' ? 'Tablet · pesquisa rápida' : 'Celular · pesquisa completa'}</span><img src="${image}" alt="QR Code da pesquisa: ${escapeHTML(sector.nome)}" loading="lazy"><p>${escapeHTML(url)}</p><button class="button secondary" data-action="copy-link" data-value="${escapeHTML(url)}">Copiar link</button></article>`;
+  })).join('');
 }
 
 /* 7. TV WALL: SOMENTE INDICADORES AGREGADOS */
@@ -491,12 +533,27 @@ document.addEventListener('click', async event => {
       state.survey.busy = true;
       button.disabled = true;
       try { await handleSurvey(action, value); }
-      catch (error) { renderSurvey(); throw error; }
-      finally { state.survey.busy = false; }
+      catch (error) {
+        const feedback = $('#survey-error');
+        if (feedback) { feedback.textContent = error.message; feedback.focus(); }
+        throw error;
+      }
+      finally { state.survey.busy = false; if (button.isConnected) button.disabled = false; }
     }
     else if (action === 'copy-link') { await navigator.clipboard.writeText(value); toast('Link copiado.'); }
   } catch (error) { toast(error.message || 'Não foi possível concluir a ação.', true); }
 });
+document.addEventListener('input', event => {
+  if (event.target.type === 'tel') event.target.value = formatPhone(event.target.value);
+});
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (!digits) return '';
+  if (digits.length <= 2) return `(${digits}`;
+  const local = digits.slice(2);
+  const split = local.length > 8 ? 5 : 4;
+  return `(${digits.slice(0, 2)}) ${local.slice(0, split)}${local.length > split ? '-' + local.slice(split) : ''}`;
+}
 document.addEventListener('change', event => {
   const target = event.target;
   if (target.id === 'filter-period') state.filters.period = target.value;
@@ -505,6 +562,9 @@ document.addEventListener('change', event => {
   if (['filter-period', 'filter-sector', 'filter-shift'].includes(target.id)) loadDashboard();
 });
 $('#login-open')?.addEventListener('click', openLogin);
+$('#staff-login')?.addEventListener('click', openLogin);
+$('#staff-logout')?.addEventListener('click', signOut);
+window.addEventListener('hashchange', () => setView(location.hash.slice(1)));
 $('#login-close')?.addEventListener('click', () => $('#login-dialog')?.close());
 $('#login-form')?.addEventListener('submit', submitLogin);
 $('#signup-open')?.addEventListener('click', () => { $('#login-dialog')?.close(); $('#signup-status').textContent = ''; $('#signup-dialog')?.showModal(); });
@@ -516,4 +576,13 @@ $('#reset-btn')?.addEventListener('click', () => { state.filters = { period: 'al
 $$('[data-view="manifestations"]').forEach(button => button.remove());
 if (new URLSearchParams(location.search).get('modo') === 'tablet') document.body.classList.add('tablet-kiosk');
 newSurvey();
-setView(location.hash.slice(1) || 'patient');
+syncNavigation();
+setView('patient');
+(async () => {
+  try { if (state.session) {
+    if (state.session.expires_at * 1000 < Date.now() + 30000) await refreshSession();
+    if (state.session) state.profile = await loadCurrentProfile();
+  } } catch { saveSession(null); state.profile = null; }
+  syncNavigation();
+  setView(location.hash.slice(1) || (canManage() && matchMedia('(min-width: 1000px)').matches ? 'dashboard' : 'patient'));
+})();

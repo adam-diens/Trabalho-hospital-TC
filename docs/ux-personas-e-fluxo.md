@@ -12,7 +12,7 @@ Recebe manifestações, consolida planilhas e precisa encontrar padrões por set
 
 ## Jornada implementada
 
-QR/link do setor → boas-vindas → nota geral 1–5 obrigatória → etapas opcionais da jornada → tela de manifestação (ênfase de acolhimento para notas 1–2) → tipo, mensagem e telefone opcionais → agradecimento. No protótipo, URL pode conter `?setor=Raio-X`; sem parâmetro usa Pronto Atendimento.
+QR/link do setor → escolha entre pesquisa rápida e completa → nota geral 1–5 obrigatória (rostos do melhor para o pior). A rápida vai ao agradecimento. A completa oferece etapas opcionais com notas de 1 a 10, conclusão antecipada e manifestação (ênfase de acolhimento para notas 1–2), com contato opcional mediante consentimento. Links usam, por exemplo, `?setor=rx&modo=celular` ou `?setor=rx&modo=tablet`; sem setor, a pessoa precisa selecioná-lo. A interface mantém pesquisa e gestão disponíveis em qualquer dispositivo, respeitando as permissões.
 
 ## Decisões visíveis
 
@@ -30,4 +30,4 @@ Paleta institucional: vermelho FHDOD para ação principal, verde petróleo para
 
 ## Referências visuais e Figma
 
-As imagens anexadas mostram fluxo desktop/mobile/tablet, biblioteca de componentes, login, painel, Ouvidoria, cadastro e TV Wall. O site recria a linguagem visual e parte da estrutura. Nenhum arquivo/link de Figma foi fornecido; estas imagens não são um protótipo navegável no Figma.
+Referência fornecida: [Trabalho Hospital no Figma](https://www.figma.com/design/xnlPTPfmS2bqv6VDbI4rAo/Trabalho-Hospital?node-id=16-2). O link não pôde ser consultado pela ferramenta nesta revisão; a comparação visual com os frames permanece pendente. A implementação preserva a marca, as cores e a estrutura existentes, com ajustes para celular, tablet e computador.

@@ -7,15 +7,15 @@ Configure `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` no `.env` a partir de `.en
 ## Responder no celular ou tablet
 
 1. Escolha o setor na tela inicial ou abra seu link/QR: pa (Pronto Atendimento), int (Internacao), enfermagem, lab (Laboratorio), rx (Raio-X) ou refeitorio.
-2. Toque em **Começar** e responda à pergunta geral configurada para o setor com uma nota de 1 a 5. Esta é a única resposta obrigatória.
-3. Responda, se desejar, ate cinco perguntas especificas do setor usando os rostinhos de 1 a 5. Cada pergunta pode ser pulada. Consulte a lista de perguntas por setor.
+2. Escolha **Estou com pouco tempo** ou **Posso contar mais**, toque em **Começar pesquisa** e responda à pergunta geral com um dos cinco rostos, apresentados do melhor para o pior. Esta é a única resposta obrigatória; na pesquisa rápida ela já conclui a participação.
+3. Na pesquisa completa, responda, se desejar, até cinco perguntas específicas do setor usando números de 1 a 10. Cada pergunta pode ser pulada, e **Concluir agora** encerra a participação sem percorrer todas as etapas.
 4. Opcionalmente, deixe elogio, reclamação ou sugestão, ou solicite retorno da Ouvidoria. O telefone só é enviado com seu consentimento explícito.
 
-Para um tablet fixo no setor, use, por exemplo, `?setor=pa&modo=tablet`. O modo tablet esconde a navegação e amplia os botões.
+Para um tablet fixo no setor, use, por exemplo, `?setor=pa&modo=tablet`. Esse link prioriza a pesquisa rápida e reinicia após oito segundos no agradecimento. O QR do celular usa `?setor=pa&modo=celular` e prioriza a pesquisa completa. A escolha da jornada continua disponível em ambos. O menu mantém o TV Wall e o acesso da equipe. Erros no envio do contato indicam o que faltou e preservam os campos; o telefone recebe máscara com DDD.
 
 ## Administrador de setor
 
-1. Abra **Gestão** → **Entrar no painel** → **Cadastre-se** e informe nome, e-mail institucional e senha.
+1. Abra **Menu** → **Acesso da equipe** → **Cadastre-se** e informe nome, e-mail institucional e senha.
 2. Confirme o e-mail, se solicitado. Envie ao superadministrador o mesmo e-mail usado no cadastro.
 3. Aguarde a liberação do perfil e do setor; o cadastro por si só não libera dados nem ferramentas administrativas.
 4. Entre com e-mail e senha. No painel, edite e salve a pergunta do seu setor. O banco impede alterações em outros setores.

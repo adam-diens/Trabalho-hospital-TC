@@ -75,3 +75,76 @@
   .tablet-kiosk .survey-card .face small { font-size: 10px; }
   .admin-tools:not(.hidden) { grid-template-columns: 1fr; }
 }
+/* Layouts compartilhados: pesquisa por toque e gestão em qualquer tamanho de tela. */
+.topbar { height: auto; min-height: 82px; gap: 16px; }
+.topbar > nav { margin-left: auto; flex-wrap: wrap; }
+.site-menu { position: relative; flex: none; }
+.site-menu summary { min-height: 48px; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; list-style: none; }
+.site-menu summary::-webkit-details-marker { display: none; }
+.menu-items { position: absolute; right: 0; top: calc(100% + 8px); width: 220px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); z-index: 10; }
+.menu-items .nav-btn { display: block; width: 100%; text-align: left; }
+.button, .nav-btn { min-height: 48px; height: auto; padding: 13px 18px; }
+.button { white-space: normal; }
+.button + .button { margin-top: 10px; }
+.head-actions .button + .button { margin-top: 0; }
+.survey-modes { display: grid; gap: 12px; margin: 0 0 20px; }
+.mode-option { display: grid; gap: 6px; text-align: left; min-height: 82px; padding: 16px; border: 2px solid var(--line); border-radius: 12px; background: white; color: var(--ink); }
+.mode-option span { color: #526e68; font-size: 13px; }
+.mode-option.selected { border-color: var(--green); background: #eff8f5; }
+.number-ratings { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 8px 0 20px; }
+.number-rating { min-width: 0; min-height: 56px; border: 1px solid #bfd9d0; border-radius: 10px; font-size: 22px; font-weight: 700; color: var(--green); background: #f3faf7; }
+.number-rating:hover { background: var(--green); color: white; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid #238d7c; outline-offset: 3px; }
+.survey-card .faces { gap: 8px; }
+.survey-card .face { flex: 1; min-width: 0; width: auto; min-height: 90px; }
+.check-line { font-size: 14px; line-height: 1.5; min-height: 48px; }
+.check-line input { width: 22px; height: 22px; flex: none; }
+.field-label { font-size: 14px; }
+.field-label input, .field-label select, .field-label textarea { font-size: 16px; min-height: 48px; }
+.field-label textarea { height: auto; min-height: 100px; }
+.survey-card .login-error:empty { display: none; }
+.login-error { font-size: 14px; line-height: 1.5; }
+.privacy-note, .survey-footer { font-size: 12px; line-height: 1.5; }
+.trend-column { height: 100%; flex: 1; max-width: 50px; display: flex; align-items: end; margin: 0 8px; }
+.trend-column i { display: block; width: 100%; background: #64b3a0; border-radius: 5px 5px 0 0; }
+.sector-row, .rating-row { display: grid; grid-template-columns: minmax(85px, 1fr) 2fr 35px; gap: 12px; align-items: center; margin: 18px 0; font-size: 13px; }
+.manifestation { display: block; overflow-wrap: anywhere; }
+.manifestation-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.manifestation p { font-size: 14px; }
+.empty-state { color: #526e68; font-size: 14px; line-height: 1.5; }
+.qr-card p { overflow-wrap: anywhere; font-size: 12px; }
+.qr-card img { display: block; margin: 16px auto; }
+.qr-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.toast { width: max-content; max-width: calc(100vw - 32px); line-height: 1.5; }
+.toast.error { background: #8d1d30; }
+.tablet-kiosk .topbar { display: flex; }
+.tablet-kiosk .survey-card { min-height: 70vh; }
+.tablet-kiosk .patient-shell { width: min(850px, calc(100% - 32px)); }
+@media (max-width: 1100px) { .topbar .live { display: none; } .brand span { max-width: 140px; } }
+@media (max-width: 700px) {
+  .topbar { padding: 10px 16px; gap: 10px; flex-wrap: wrap; }
+  .brand { flex: 1; }
+  .brand img { width: 48px; height: 48px; }
+  .brand span { max-width: none; }
+  .topbar > nav { order: 2; width: 100%; height: auto; justify-content: flex-start; gap: 4px; }
+  .nav-btn { padding: 12px; font-size: 13px; }
+  .site-menu { order: 1; }
+  .site-menu summary span { display: none; }
+  .patient-shell, .tablet-kiosk .patient-shell { margin: 22px auto; width: calc(100% - 24px); }
+  .survey-card, .tablet-kiosk .survey-card { padding: 26px 18px; min-height: 480px; gap: 6px; }
+  .survey-card h1, .tablet-kiosk .survey-card h1 { font-size: clamp(24px, 6vw, 32px); }
+  .survey-card .faces { gap: 5px; }
+  .survey-card .face, .tablet-kiosk .survey-card .face { width: auto; min-width: 0; height: 84px; min-height: 84px; }
+  .survey-card .face span, .tablet-kiosk .survey-card .face span { font-size: 30px; }
+  .survey-card .face small { font-size: 11px; }
+  .head-actions, .filters, .auth-banner { flex-wrap: wrap; }
+  .head-actions .button { min-height: 48px; height: auto; }
+  .filters { grid-template-columns: 1fr; }
+  .filters select { min-height: 48px; font-size: 16px; }
+  .auth-banner { font-size: 13px; }
+  .admin-tools:not(.hidden) { grid-template-columns: minmax(0, 1fr); }
+  .panel, .kpi, .dashboard-grid > *, .admin-tools > * { min-width: 0; }
+  .page-head p, .panel-title p { font-size: 13px; line-height: 1.5; }
+  .wall-bottom { overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }

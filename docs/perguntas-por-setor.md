@@ -1,6 +1,6 @@
 # Perguntas por setor
 
-Cada setor possui cinco perguntas opcionais com avaliacao por rostinhos (1 a 5). A avaliacao geral do setor continua sendo a unica obrigatoria. As perguntas podem ser puladas.
+Cada setor possui cinco perguntas opcionais com avaliação numérica (1 a 10), disponíveis na pesquisa completa. A avaliação geral usa cinco rostos e continua sendo a única obrigatória. As perguntas podem ser puladas ou a participação pode ser concluída antecipadamente.
 
 ## Pronto Atendimento
 1. Como foi o acolhimento na recepcao?
@@ -44,4 +44,4 @@ Cada setor possui cinco perguntas opcionais com avaliacao por rostinhos (1 a 5).
 4. Como avalia a variedade das refeicoes?
 5. Como avalia a limpeza do refeitorio?
 
-As respostas opcionais ficam em respostas.jornada (JSONB), com uma chave por pergunta e valores validos de 1 a 5.
+As respostas opcionais ficam em respostas.jornada (JSONB), com uma chave por pergunta e valores inteiros de 1 a 10. Para bancos existentes, aplique `supabase/escala_jornada_10.sql` após os scripts de esquema e segurança; notas históricas são preservadas.

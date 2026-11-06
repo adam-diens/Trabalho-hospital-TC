@@ -42,7 +42,7 @@ create or replace function complementar_resposta(p_id uuid, p_jornada jsonb defa
 returns void language plpgsql security definer set search_path=public as $$
 begin
   if p_jornada is not null and (jsonb_typeof(p_jornada)<>'object' or octet_length(p_jornada::text)>2000
-     or exists (select 1 from jsonb_each(p_jornada) j where jsonb_typeof(j.value)<>'number' or (j.value::text)::numeric not between 1 and 5))
+     or exists (select 1 from jsonb_each(p_jornada) j where jsonb_typeof(j.value)<>'number' or ((j.value::text)::numeric not between 1 and 10 or (j.value::text)::numeric <> trunc((j.value::text)::numeric))))
   then raise exception 'jornada inválida'; end if;
   update respostas set jornada = jornada || coalesce(p_jornada,'{}'::jsonb),
          tipo = coalesce(p_tipo, tipo),

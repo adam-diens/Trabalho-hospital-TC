@@ -90,7 +90,7 @@ paths:
               required: [p_id]
               properties:
                 p_id: { type: string, format: uuid }
-                p_jornada: { type: [object, "null"], description: Notas opcionais para recepcao, triagem, enfermagem, medico, alimentacao, limpeza, conforto e orientacoes., additionalProperties: { type: integer, minimum: 1, maximum: 5 } }
+                p_jornada: { type: [object, "null"], description: Notas opcionais das etapas do setor; avaliação geral permanece de 1 a 5., additionalProperties: { type: integer, minimum: 1, maximum: 10 } }
                 p_tipo: { type: [string, "null"], enum: [elogio, reclamacao, sugestao, null] }
                 p_comentario: { type: [string, "null"], maxLength: 1000 }
       responses:

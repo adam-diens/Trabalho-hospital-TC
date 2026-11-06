@@ -15,10 +15,21 @@ A aplicação inclui frontend responsivo e API própria em Node.js. A API encami
 
 ## Recursos
 
-- Pesquisa de experiência com avaliação por setor, perguntas opcionais com rostinhos e envio de manifestação à Ouvidoria.
-- QR Codes específicos por setor e modo tablet.
+- Pesquisa rápida: apenas a avaliação geral, com cinco rostos do melhor para o pior.
+- Pesquisa completa: avaliação geral, etapas opcionais com notas de 1 a 10 e manifestação à Ouvidoria. É possível concluir sem percorrer todas as etapas.
+- QR Codes distintos por setor para celular (`?setor=pa&modo=celular`) e tablet (`?setor=pa&modo=tablet`). Ambos permitem escolher a outra jornada. No tablet, o agradecimento reinicia a pesquisa após oito segundos.
 - Painel autenticado com perfis e indicadores, TV Wall público e exportação compatível com Excel.
 - Persistência e autenticação no Supabase.
+
+## Atualização da escala e acesso
+
+Em bancos existentes, execute [escala_jornada_10.sql](supabase/escala_jornada_10.sql) no SQL Editor do Supabase, após `schema.sql` e `correcoes_seguranca.sql`. Isso libera as notas inteiras de 1 a 10 nas etapas opcionais, preservando os dados anteriores. A avaliação geral continua de 1 a 5. O script não é executado automaticamente ao iniciar o servidor.
+
+A navegação pública oferece pesquisa e TV Wall (dentro do menu). O acesso da equipe também fica no menu. Gestão, gráficos e QR Codes exigem perfil `admin_setor`, `gestao` ou `super_admin`; a API verifica a sessão e o perfil no Supabase, além das regras do banco. O cadastro sozinho não concede acesso. A gestão funciona também no celular, e a pesquisa funciona também no computador. Em telas grandes, uma sessão de gestão válida abre o painel por padrão.
+
+## Validação
+
+Execute `npm test` (`npm.cmd test` no PowerShell se a política de scripts bloquear o npm). Os testes usam um Supabase simulado e o Edge em modo headless, sem gravar dados reais. Defina `EDGE_BIN` caso o executável esteja em outro caminho. Cobrem permissões da API, seleção do primeiro setor, pesquisa rápida, escala de 1 a 10, consentimento sem perda dos campos, telefone, QR Codes e ausência de rolagem horizontal entre 320 e 1440 pixels.
 
 ## Documentação
 

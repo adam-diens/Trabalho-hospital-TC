@@ -2,7 +2,7 @@
 
 ## Pesquisa do paciente
 
-A pesquisa tem uma pergunta geral obrigatoria e cinco perguntas opcionais especificas para o setor selecionado. As perguntas opcionais usam rostinhos de 1 a 5, aparecem uma por vez e podem ser puladas.
+A pesquisa rápida tem apenas a avaliação geral com cinco rostos, do melhor para o pior. A pesquisa completa acrescenta cinco perguntas opcionais do setor, com números de 1 a 10, apresentadas uma por vez. É possível pular uma pergunta ou concluir antecipadamente.
 
 Para abrir a pesquisa em modo quiosque, use o código do setor com `modo=tablet`, por exemplo:
 
@@ -10,7 +10,7 @@ Para abrir a pesquisa em modo quiosque, use o código do setor com `modo=tablet`
 ?setor=pa&modo=tablet
 ```
 
-Os codigos sao pa (Pronto Atendimento), int (Internacao), enfermagem, lab (Laboratorio), rx (Raio-X) e refeitorio. Cada setor tem seu link e QR Code na area QR Codes.
+Os códigos são pa (Pronto Atendimento), int (Internação), enfermagem, lab (Laboratório), rx (Raio-X) e refeitorio. A área QR Codes, restrita à gestão, oferece dois códigos por setor: `modo=tablet` para iniciar na pesquisa rápida e `modo=celular` para iniciar na completa. Ambos permitem trocar de jornada. O tablet reinicia a pesquisa oito segundos após o agradecimento. A navegação permanece disponível no menu.
 
 ## Perfis e permissões
 

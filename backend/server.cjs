@@ -32,7 +32,8 @@ function sendJson(response, status, data) {
 
 function proxyPath(pathname) {
   if (/^\/api\/auth\/v1\/(?:token|signup)$/.test(pathname)) return pathname.slice(4);
-  if (/^\/api\/rest\/v1\/(?:rpc\/[a-z_]+|[a-z_]+)$/.test(pathname)) return pathname.slice(4);
+  if (/^\/api\/rest\/v1\/(?:setores|perguntas|perfis)$/.test(pathname)) return pathname.slice(4);
+  if (/^\/api\/rest\/v1\/rpc\/(?:registrar_resposta|complementar_resposta|registrar_contato|tv_resumo|painel_resumo|listar_manifestacoes|exportar_respostas|salvar_pergunta_setor|definir_perfil|atualizar_manifestacao|marcar_publicavel)$/.test(pathname)) return pathname.slice(4);
   return null;
 }
 
@@ -56,6 +57,27 @@ const server = http.createServer(async (request, response) => {
       const headers = { apikey: publishableKey, Accept: 'application/json' };
       if (request.headers.authorization) headers.Authorization = request.headers.authorization;
       if (request.headers['content-type']) headers['Content-Type'] = request.headers['content-type'];
+      const publicRoutes = new Set(['/rest/v1/setores', '/rest/v1/perguntas',
+        '/rest/v1/rpc/registrar_resposta', '/rest/v1/rpc/complementar_resposta',
+        '/rest/v1/rpc/registrar_contato', '/rest/v1/rpc/tv_resumo']);
+      if (!isAuth && !publicRoutes.has(upstreamPath)) {
+        if (!headers.Authorization) return sendJson(response, 401, { error: 'Entre com sua conta institucional.' });
+        const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, { headers });
+        if (!userResponse.ok) return sendJson(response, 401, { error: 'Sessão inválida ou expirada.' });
+        const user = await userResponse.json();
+        if (!user.id) return sendJson(response, 401, { error: 'Sessão inválida.' });
+        // Usuários comuns podem consultar somente o próprio perfil para montar a navegação.
+        if (upstreamPath !== '/rest/v1/perfis') {
+          const profileResponse = await fetch(`${supabaseUrl}/rest/v1/perfis?select=perfil&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, { headers });
+          if (!profileResponse.ok) return sendJson(response, 403, { error: 'Não foi possível verificar suas permissões.' });
+          const profiles = await profileResponse.json();
+          const role = profiles?.[0]?.perfil;
+          if (!['super_admin', 'admin_setor', 'gestao'].includes(role)) return sendJson(response, 403, { error: 'Esta conta não possui permissão de gestão.' });
+          if (['/rest/v1/rpc/definir_perfil', '/rest/v1/rpc/marcar_publicavel'].includes(upstreamPath) && role !== 'super_admin') {
+            return sendJson(response, 403, { error: 'Ação exclusiva do superadministrador.' });
+          }
+        }
+      }
       const upstream = await fetch(`${supabaseUrl}${upstreamPath}${url.search}`, {
         method: request.method, headers,
         ...(chunks.length && !['GET', 'HEAD'].includes(request.method) ? { body: Buffer.concat(chunks) } : {}),
