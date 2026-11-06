@@ -61,6 +61,8 @@ before(async () => {
     else if (name === 'ep_configuracao') result = { coleta_habilitada: false, privacidade_versao: 'rascunho' };
     else if (name === 'ep_questionario') result = { id: Q, versao: body.p_versao || 1 };
     else if (['ep_salvar_setor', 'ep_salvar_equipe', 'ep_salvar_escala', 'ep_publicar_questionario'].includes(name)) result = Q;
+    else if (name==='ep_listar_solicitacoes') result=[{user_id:PA,nome:'Nova Pessoa',email:'nova@example.invalid',situacao:'pendente'}];
+    else if (name==='ep_decidir_solicitacao') result={situacao:body.p_decisao==='aprovar'?'aprovada':'rejeitada'};
     else if (['ep_listar_equipes', 'ep_listar_escalas', 'ep_listar_perfis', 'ep_auditoria'].includes(name)) result = [];
     else if (['ep_publicar_tv', 'ep_expurgar_contatos'].includes(name)) result = 1;
     res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(result));
@@ -253,6 +255,10 @@ test('links de QR usam origem configurada, não Host do cliente, e respeitam set
   assert.equal(result.data.length, 4); assert.ok(result.data.every(row => row.url.startsWith(config.publicOrigin)));
   const sector = await request('/api/v2/qrcodes', { role: 'admin_setor' });
   assert.equal(sector.data.length, 2); assert.ok(sector.data.every(row => row.setor_id === PA));
+  const image=await request('/api/v2/qrcodes/pa/tablet',{role:'admin_setor'});
+  assert.equal(image.status,200);assert.match(image.headers.get('content-type'),/image\/svg\+xml/);assert.ok(image.data.includes('<svg'));
+  assert.equal((await request('/api/v2/qrcodes/rx/tablet',{role:'admin_setor'})).status,403);
+  assert.equal((await request('/api/v2/qrcodes/pa/invalido',{role:'gestao'})).status,400);
 });
 test('login, refresh, cadastro sem perfil, recuperação e logout usam Auth sem credencial operacional', async () => {
   const session = await request('/api/v2/auth/entrar', { method: 'POST', body: { email: 'gestao@example.invalid', senha: 'senha' } });
@@ -291,6 +297,13 @@ test('erros SQL são traduzidos e não vazam mensagens internas', async () => {
       assert.equal(result.status, status); assert.ok(!JSON.stringify(result.data).includes('SEGREDO_DO_UPSTREAM')); assert.ok(result.data.error.request_id);
     } finally { failure = null; }
   }
+  failure = { name: 'ep_formulario', code: '55000', status: 500 };
+  try {
+    const result = await request('/api/v2/setores/pa/formulario');
+    assert.equal(result.status, 503);
+    assert.equal(result.data.error.code, 'COLLECTION_DISABLED');
+    assert.ok(!JSON.stringify(result.data).includes('SEGREDO_DO_UPSTREAM'));
+  } finally { failure = null; }
   failure = { name: 'ep_enviar_pesquisa', code: 'P0001' };
   try { const result = await request('/api/v2/pesquisas', { method: 'POST', body: validSurvey() }); assert.equal(result.status, 429); assert.equal(result.headers.get('retry-after'), '600'); }
   finally { failure = null; }
@@ -357,4 +370,36 @@ test('CSV recusa exportação acima do limite antes de iniciar o download', asyn
 test('resposta grande do upstream é interrompida sem expor conteúdo', async () => {
   const db = createSupabase({ ...config, maxUpstreamBytes: 1024 }, async () => new Response('x'.repeat(2000)));
   await assert.rejects(db.rpc('ep_setores'), e => e.status === 502 && e.code === 'UPSTREAM_TOO_LARGE');
+});
+
+test('somente superadmin analisa solicitações e aprovação nunca concede superadmin',async()=>{
+  const approve={usuario:PA,decisao:'aprovar',papel:'visualizador'};
+  assert.equal((await request('/api/v2/solicitacoes')).status,401);
+  for(const role of roles.filter(r=>r!=='super_admin')){
+    assert.equal((await request('/api/v2/solicitacoes',{role})).status,403);
+    assert.equal((await request('/api/v2/solicitacoes',{method:'PUT',role,body:approve})).status,403);
+  }
+  const list=await request('/api/v2/solicitacoes?situacao=pendente&limite=50',{role:'super_admin'});
+  assert.equal(list.status,200);assert.equal(list.headers.get('x-next-cursor'),PA);
+  assert.equal(list.data[0].email,'nova@example.invalid');
+  assert.equal((await request('/api/v2/solicitacoes',{method:'PUT',role:'super_admin',body:approve})).status,200);
+  assert.equal(lastCall('ep_decidir_solicitacao').body.p_papel,'visualizador');
+  for(const body of [{...approve,papel:'super_admin'},{...approve,papel:'admin_setor'},
+    {...approve,setor:PA},{usuario:PA,decisao:'aprovar'},{...approve,motivo:'indevido'},
+    {usuario:PA,decisao:'rejeitar'},{...approve,decisao:'rejeitar',motivo:'Não autorizado'}]){
+    const previous=calls.length;
+    assert.equal((await request('/api/v2/solicitacoes',{method:'PUT',role:'super_admin',body})).status,400);
+    assert.ok(!calls.slice(previous).some(c=>c.path.endsWith('/ep_decidir_solicitacao')));
+  }
+  assert.equal((await request('/api/v2/solicitacoes',{method:'PUT',role:'super_admin',body:{usuario:PA,decisao:'rejeitar',motivo:'Vínculo não confirmado'}})).data.situacao,'rejeitada');
+  failure={name:'ep_decidir_solicitacao',code:'40001',status:500};
+  try{const result=await request('/api/v2/solicitacoes',{method:'PUT',role:'super_admin',body:approve});assert.equal(result.status,409);assert.equal(result.data.error.code,'VERSION_CONFLICT');}
+  finally{failure=null;}
+  assert.equal((await request('/api/v2/auth/cadastrar',{method:'POST',body:{email:'nova@example.invalid',nome:'Nova Pessoa',senha:'senha-longa-de-teste',papel:'super_admin'}})).status,400);
+  failure={name:'ep_meu_perfil',code:'42501',status:403};
+  try{const result=await request('/api/v2/auth/entrar',{method:'POST',body:{email:'gestao@example.invalid',senha:'senha-longa-de-teste'}});assert.equal(result.status,403);assert.equal(result.data.error.code,'ACCESS_NOT_APPROVED');assert.ok(!result.data.access_token);}
+  finally{failure=null;}
+  const previous=config.allowSignup;config.allowSignup=false;
+  try{assert.equal((await request('/api/v2/auth/cadastrar',{method:'POST',body:{email:'nova@example.invalid',nome:'Nova Pessoa',senha:'senha-longa-de-teste'}})).data.error.code,'SIGNUP_DISABLED');}
+  finally{config.allowSignup=previous;}
 });

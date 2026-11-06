@@ -32,18 +32,19 @@ function createSupabase(config, fetchImpl = fetch) {
     try { data = text ? JSON.parse(text) : null; } catch { throw new ApiError(502, 'UPSTREAM_INVALID', 'Resposta inválida do serviço de dados.'); }
     if (response.ok) return data;
     if (response.status === 429) throw new ApiError(429, 'RATE_LIMITED', 'Muitas tentativas. Aguarde para tentar novamente.', { 'Retry-After': '60' });
-    if (response.status >= 500) throw new ApiError(502, 'UPSTREAM_UNAVAILABLE', 'Serviço de dados temporariamente indisponível.');
     const code = data?.code;
+    // PostgREST também devolve HTTP 500 para SQLSTATE 55000 (estado da coleta).
+    if (code === '55000') throw new ApiError(503, 'COLLECTION_DISABLED', 'A pesquisa está temporariamente indisponível.');
     // Cadastro repetido recebe a mesma confirmação genérica de um cadastro novo.
     if (authAction === 'signup' && ['user_already_exists', 'email_exists'].includes(code)) return null;
     if (code === '42501' || response.status === 403) throw new ApiError(403, 'FORBIDDEN', 'Seu perfil não permite esta operação.');
-    if (code === '40001') throw new ApiError(409, 'VERSION_CONFLICT', 'O atendimento foi atualizado. Recarregue antes de continuar.');
-    if (code === '55000') throw new ApiError(503, 'COLLECTION_DISABLED', 'A pesquisa está temporariamente indisponível.');
+    if (code === '40001') throw new ApiError(409, 'VERSION_CONFLICT', 'O registro foi atualizado. Recarregue antes de continuar.');
     if (code === 'P0001' && path.endsWith('/ep_enviar_pesquisa')) throw new ApiError(429, 'RATE_LIMITED', 'Limite temporário de respostas atingido.', { 'Retry-After': '600' });
     if (code === '22023' || code === '22P02') throw new ApiError(400, 'INVALID_OPERATION',
       path.endsWith('/ep_enviar_pesquisa') ? 'Envio inválido ou formulário desatualizado. Confira os dados e recarregue a pesquisa se necessário.' : 'Dados ou estado inválidos para esta operação.');
     if (['23514', '23502', '23503', '23505'].includes(code)) throw new ApiError(409, 'DATA_CONFLICT', 'Os dados conflitam com as regras ou registros existentes.');
     if (['PGRST202', 'PGRST204', '42P01', '42883'].includes(code)) throw new ApiError(503, 'DATABASE_NOT_READY', 'A versão do banco ou o cache da API precisa ser atualizado.');
+    if (response.status >= 500) throw new ApiError(502, 'UPSTREAM_UNAVAILABLE', 'Serviço de dados temporariamente indisponível.');
     if (response.status === 401 && !token && !authAction) throw new ApiError(503, 'UPSTREAM_CREDENTIALS', 'Credencial do serviço de dados indisponível.');
     if (response.status === 401 || ['signin', 'refresh', 'user'].includes(authAction)) throw new ApiError(401, 'INVALID_SESSION',
       authAction === 'signin' ? 'E-mail ou senha inválidos, ou conta ainda não confirmada.' : 'Sessão inválida ou expirada.');

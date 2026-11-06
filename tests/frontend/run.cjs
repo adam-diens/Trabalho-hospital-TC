@@ -1,0 +1,134 @@
+// Navegador real + API v2 real + Supabase simulado. Nenhum dado remoto é usado.
+const assert=require('node:assert/strict');
+const http=require('node:http');
+const fs=require('node:fs');
+const path=require('node:path');
+const os=require('node:os');
+const {spawn}=require('node:child_process');
+const {once}=require('node:events');
+const {createApplication}=require('../../backend/app.cjs');
+const {readConfig}=require('../../backend/config.cjs');
+const PA='11111111-1111-4111-8111-111111111111',RX='22222222-2222-4222-8222-222222222222',Q='33333333-3333-4333-8333-333333333333',UID='55555555-5555-4555-8555-555555555555',MID='44444444-4444-4444-8444-444444444444';
+const sectors=[{id:PA,slug:'pa',nome:'Pronto Atendimento',ativo:true},{id:RX,slug:'rx',nome:'Raio-X',ativo:true}];
+const calls=[],receipts=new Map();let failSurvey=false,conflict=false,closed=false,delay=false,generalScale='rostos_5',published=null;let questionVersion=1;
+const requests=[{user_id:MID,nome:'Pessoa solicitante',email:'solicitante@example.invalid',situacao:'pendente',criado_em:new Date().toISOString()},
+ {user_id:RX,nome:'Outra solicitante',email:'outra@example.invalid',situacao:'pendente',criado_em:new Date().toISOString()}];
+const timestamp=()=>new Date().toISOString();
+const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const questions=()=>published?.perguntas||[{id:Q,chave:'geral',texto:'Como você avalia sua experiência geral no hospital?',metrica:generalScale,geral:true,obrigatoria:true,ordem:0},{id:RX,chave:'recepcao',texto:'Como foi o acolhimento na recepção?',metrica:'nota_10',geral:false,obrigatoria:false,ordem:1},{id:PA,chave:'triagem',texto:'Como foi sua experiência na triagem?',metrica:'rostos_5',geral:false,obrigatoria:false,ordem:2}];
+const mock=http.createServer(async(req,res)=>{
+ let raw='';for await(const chunk of req)raw+=chunk;const body=raw?JSON.parse(raw):{};
+ const u=new URL(req.url,'http://mock'),name=u.pathname.split('/').at(-1),role=req.headers.authorization?.replace('Bearer token-','');calls.push({name,body,role,path:u.pathname});
+ let data=null;
+ if(name==='user')data={id:UID,role:'authenticated'};
+ else if(name==='token'){const role=body.email?.split('@')[0]||body.refresh_token?.replace('refresh-','')||'gestao';data={access_token:'token-'+role,refresh_token:'refresh-'+role,expires_in:3600,user:{id:UID}};}
+ else if(name==='ep_meu_perfil')data={user_id:UID,nome:'Equipe de demonstração',papel:role,setor_id:role==='admin_setor'?PA:null};
+ else if(name==='ep_setores'||name==='ep_listar_setores')data=sectors;
+ else if(name==='ep_formulario'){
+  if(delay&&body.p_setor==='pa')await new Promise(r=>setTimeout(r,200));
+  if(closed){res.writeHead(400);res.end(JSON.stringify({code:'55000'}));return;}
+  data={questionario_id:Q,versao:questionVersion,metrica:generalScale,limite_ouvidoria:2,privacidade_versao:'v1',privacidade_texto:'Sua participação é voluntária. Usaremos as respostas para melhorar o atendimento. Telefone é opcional e restrito ao retorno autorizado da Ouvidoria.',perguntas:questions()};
+ }
+ else if(name==='ep_enviar_pesquisa'){
+  const receipt=receipts.get(body.p_chave_envio)||{recebida:true,protocolo:body.p_tipo||body.p_telefone?12345:null};receipts.set(body.p_chave_envio,receipt);
+  if(failSurvey){failSurvey=false;res.writeHead(502);res.end('{}');return;}data=receipt;
+ }
+ else if(name==='ep_painel')data={respostas:145,manifestacoes:3,atualizado_em:timestamp(),por_metrica:[{metrica:'rostos_5',n:100,media:4.2,satisfacao:84},{metrica:'nota_10',n:45,media:8.1,satisfacao:80}],tendencia:[{data:day(),metrica:'rostos_5',media:4.2,n:100}],por_setor:[{setor_id:PA,nome:'Pronto Atendimento',metrica:'rostos_5',n:100,media:4.2}],por_turno:[{turno:'manha',metrica:'rostos_5',n:100,media:4.2}],por_equipe:role==='visualizador'?[]:[{nome:'Equipe A',metrica:'rostos_5',n:50,media:4.1}],distribuicao:[{nota:5,metrica:'rostos_5',n:60},{nota:4,metrica:'rostos_5',n:24},{nota:3,metrica:'rostos_5',n:16}],etapas:[{questionario_id:Q,versao:1,pergunta_id:PA,texto:'Como foi o acolhimento na recepção?',chave:'recepcao',metrica:'nota_10',media:8.5,n:72,ordem:1}],equipes_aviso:'Associação indicativa pela escala. Não identifica culpabilidade individual.'};
+ else if(name==='ep_listar_equipes')data=[{id:Q,setor_id:PA,nome:'Equipe A',ativa:true}];
+ else if(name==='ep_listar_escalas')data=[{id:MID,setor_id:PA,equipe_id:Q,equipe:'Equipe A',data:day(),turno:'manha'}];
+ else if(name==='ep_listar_manifestacoes')data=[{id:MID,protocolo:12345,tipo:'reclamacao',situacao:'aberta',revisao:1,criado_em:timestamp(),setor_id:PA,setor:'Pronto Atendimento',turno:'manha',nota:2,metrica:'rostos_5'}];
+ else if(name==='ep_detalhar_manifestacao')data={id:MID,protocolo:12345,tipo:'reclamacao',comentario:'A espera poderia ser melhor. <img src=x onerror=alert(1)>',situacao:'aberta',revisao:conflict?2:1,criado_em:timestamp(),setor_id:PA,telefone:['super_admin','ouvidoria'].includes(role)?'51999999999':null,interacoes:[]};
+ else if(name==='ep_atender_manifestacao'){if(conflict&&body.p_revisao===1){res.writeHead(400);res.end(JSON.stringify({code:'40001'}));return;}data=body.p_revisao+1;}
+ else if(name==='ep_questionario')data={id:Q,setor_id:body.p_setor,versao:questionVersion,metrica:published?.metrica||'rostos_5',limite_ouvidoria:published?.limite_ouvidoria||2,perguntas:questions()};
+ else if(name==='ep_publicar_questionario'){questionVersion++;published={metrica:body.p_metrica,limite_ouvidoria:body.p_limite,perguntas:[{id:Q,chave:'geral',texto:body.p_pergunta_geral,metrica:body.p_metrica,geral:true,obrigatoria:true,ordem:0},...body.p_etapas.map((s,i)=>({...s,id:RX,geral:false,obrigatoria:false,ordem:i+1}))]};data=Q;}
+ else if(name==='ep_configuracao')data={privacidade_versao:'v1',privacidade_texto:'Aviso de privacidade fictício para testes funcionais e demonstração local.',coleta_habilitada:true,retencao_contato_dias:90};
+ else if(name==='ep_listar_perfis')data=[{user_id:PA,nome:'Coordenação',papel:'admin_setor',setor_id:PA,ativo:true}];
+ else if(name==='ep_listar_solicitacoes')data=requests.filter(r=>r.situacao===(body.p_situacao||'pendente'));
+ else if(name==='ep_decidir_solicitacao'){const row=requests.find(r=>r.user_id===body.p_usuario);row.situacao=body.p_decisao==='aprovar'?'aprovada':'rejeitada';row.papel=body.p_papel;row.motivo=body.p_motivo;row.decidido_em=timestamp();data={situacao:row.situacao};}
+ else if(name==='ep_auditoria')data=[{id:1,ator_id:UID,acao:'salvar_escala',entidade:'escalas',alvo:PA,detalhes:{turno:'manha'},criado_em:timestamp()}];
+ else if(name==='ep_tv')data={periodo_dias:30,metricas:[{metrica:'rostos_5',n:145,media:4.2,satisfacao:84,publicado_em:timestamp(),inicio:day(),fim:day()}]};
+ else if(name==='ep_exportar')data=[];
+ else if(['ep_salvar_setor','ep_salvar_equipe','ep_salvar_escala'].includes(name))data=Q;
+ res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+});
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitFor(fn,label='condição'){for(let i=0;i<100;i++){try{const value=await fn();if(value)return value;}catch{}await pause(80);}throw new Error('Tempo excedido: '+label);}
+(async()=>{
+ await new Promise(resolve=>mock.listen(0,'127.0.0.1',resolve));
+ const config=readConfig({SUPABASE_URL:`http://127.0.0.1:${mock.address().port}`,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_test',SUPABASE_SECRET_KEY:'sb_secret_test',ORIGIN_HMAC_SECRET:'a'.repeat(64),PORT:'0',READ_LIMIT_PER_MINUTE:'10000',AUTH_LIMIT_PER_10_MINUTES:'1000',SURVEY_LIMIT_PER_10_MINUTES:'1000',ALLOW_SIGNUP:'true',AUTH_REDIRECT_URL:'http://127.0.0.1/recuperar'});
+ const server=createApplication(config,{logger:()=>{}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;config.publicOrigin=base;
+ let browser,socket;let checks=0;const errors=[];
+ try{
+  const executable=process.env.EDGE_BIN||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+  if(!fs.existsSync(executable))throw new Error('Defina EDGE_BIN para o navegador de teste.');
+  const debug=http.createServer();await new Promise(resolve=>debug.listen(0,'127.0.0.1',resolve));const debugPort=debug.address().port;await new Promise(resolve=>debug.close(resolve));
+  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'fhdod-ui-v2-'));
+  browser=spawn(executable,['--headless=new','--disable-gpu','--no-first-run',`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore',windowsHide:true});
+  const page=await waitFor(async()=>{const response=await fetch(`http://127.0.0.1:${debugPort}/json`,{signal:AbortSignal.timeout(500)});return(await response.json()).find(p=>p.type==='page');},'iniciar Edge');
+  socket=new WebSocket(page.webSocketDebuggerUrl);await once(socket,'open');let counter=0;const pending=new Map();
+  socket.addEventListener('message',event=>{const msg=JSON.parse(event.data);if(msg.method==='Runtime.exceptionThrown')errors.push(msg.params.exceptionDetails.text+': '+(msg.params.exceptionDetails.exception?.description||''));if(pending.has(msg.id)){const{resolve,reject}=pending.get(msg.id);pending.delete(msg.id);msg.error?reject(new Error(JSON.stringify(msg.error))):resolve(msg.result);}});
+  function cdp(method,params={}){return new Promise((resolve,reject)=>{const id=++counter;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});}
+  async function evaluate(expression){const result=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));return result.result.value;}
+  await cdp('Runtime.enable');await cdp('Browser.setDownloadBehavior',{behavior:'deny'});
+  const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  const fill=(selector,value)=>evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  const change=(selector,value)=>evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  const submit=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).requestSubmit()`);
+  async function navigate(fragment='',query=''){await cdp('Page.navigate',{url:base+'/'+query+(fragment?'#'+fragment:'')});await waitFor(()=>evaluate('!!document.querySelector("#survey-sector,#auth-form,.workspace-content,.wall")'),'abrir '+fragment);}
+  async function shot(name){if(!process.argv.includes('--screenshots'))return;await evaluate("document.activeElement?.blur();window.scrollTo(0,0);document.querySelector(\"#toast\").style.display=\"none\"");const data=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});const output=path.resolve(__dirname,'../../output/frontend');fs.mkdirSync(output,{recursive:true});fs.writeFileSync(path.join(output,name+'.png'),Buffer.from(data.data,'base64'));}
+  function ok(value,message){assert.ok(value,message);checks++;}
+  async function login(role){await navigate('login');await fill('[name=email]',role+'@example.invalid');await fill('[name=senha]','senha-de-teste');await submit('#auth-form');await waitFor(()=>evaluate('!!document.querySelector("#dashboard-results .kpi")'),'login '+role);}
+  await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  await navigate();ok(await evaluate('document.querySelector("#survey-start").disabled'),'setor obrigatório');
+  await change('#survey-sector','pa');await waitFor(()=>evaluate('!document.querySelector("#survey-start").disabled'));
+  await shot('pesquisa-mobile');
+  await click('[name=survey-mode][value=quick]');await click('#survey-start');ok(await evaluate('document.querySelector("#privacy-dialog").open'),'aviso antes da pesquisa');
+  await click('#privacy-continue');await click('[data-rating="5"]');await click('#rating-next');await waitFor(()=>evaluate('document.querySelector("#survey-card h1").textContent.includes("Obrigado")'));
+  ok(calls.filter(c=>c.name==='ep_enviar_pesquisa').length===1,'uma única gravação');ok(calls.find(c=>c.name==='ep_enviar_pesquisa').body.p_nota===5,'nota geral enviada');
+  await navigate('pesquisa','?setor=pa&modo=celular');await waitFor(()=>evaluate('!document.querySelector("#survey-start").disabled'));await click('#survey-start');await click('#privacy-continue');await click('[data-rating="1"]');await click('#rating-next');
+  ok(await evaluate('document.querySelectorAll("[data-rating]").length===10'),'escala numérica opcional do banco');await click('[data-rating="10"]');await click('#rating-next');ok(await evaluate('document.querySelectorAll("[data-rating]").length===5'),'etapa seguinte usa rostinhos');await click('#stage-skip');
+  await fill('[name=comentario]','Mensagem de teste preservada.');await click('#anonymous');await fill('[name=telefone]','51987654321');
+  ok(await evaluate('document.querySelector("[name=telefone]").value==="(51) 98765-4321"'),'máscara de telefone');
+  await submit('#comment-form');ok(await evaluate('!!document.querySelector("#comment-form")'),'sem consentimento não envia');await click('[name=consentimento]');failSurvey=true;await submit('#comment-form');await waitFor(()=>evaluate('!!document.querySelector("#retry-send")'));
+  const first=calls.filter(c=>c.name==='ep_enviar_pesquisa').at(-1).body;
+  await click('#retry-send');await waitFor(()=>evaluate('!!document.querySelector(".protocol")'));
+  const last=calls.filter(c=>c.name==='ep_enviar_pesquisa').at(-1).body;ok(JSON.stringify(first)===JSON.stringify(last),'retry preserva payload e chave');ok(last.p_etapas.recepcao===10&&!('triagem'in last.p_etapas),'etapas enviadas conforme respondidas');ok(await evaluate('document.querySelector(".protocol").textContent.includes("12345")'),'protocolo exibido');
+  generalScale='nota_10';await navigate('pesquisa','?setor=pa&modo=tablet');await waitFor(()=>evaluate('!document.querySelector("#survey-start").disabled'));await click('#survey-start');await click('#privacy-continue');ok(await evaluate('document.querySelectorAll("[data-rating]").length===10'),'geral numérica também usa configuração do banco');await click('[data-rating="10"]');await click('#rating-next');await waitFor(()=>evaluate('!!document.querySelector("#new-survey")'));await click('#pause-reset');ok(calls.filter(c=>c.name==='ep_enviar_pesquisa').at(-1).body.p_nota===10,'nota geral 10 enviada em tablet');generalScale='rostos_5';
+  closed=true;await navigate('pesquisa','?setor=pa');await waitFor(()=>evaluate('document.querySelector(".form-feedback")?.textContent.includes("indisponível")'));ok(await evaluate('document.querySelector("#survey-start").disabled'),'coleta desabilitada não inventa formulário');closed=false;
+  delay=true;await navigate();await change('#survey-sector','pa');await change('#survey-sector','');await pause(300);ok(await evaluate('document.querySelector("#survey-start").disabled'),'resposta antiga não habilita setor vazio');delay=false;
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await login('gestao');await shot('gestao-desktop');
+  ok(await evaluate('document.querySelector("#dashboard-results").textContent.includes("145")'),'indicadores reais da API');ok(!await evaluate('[...document.querySelectorAll(".sidebar a")].some(a=>a.hash.startsWith("#cadastro"))'),'gestão não edita cadastros');
+  await change('[name=turno]','tarde');await submit('#dashboard-filters');await waitFor(()=>calls.filter(c=>c.name==='ep_painel').at(-1).body.p_turno==='tarde');ok(true,'filtro encaminhado ao backend');await click('#export-csv');await waitFor(()=>calls.some(c=>c.name==='ep_exportar'&&c.body.p_turno==='tarde'));ok(true,'exportação usa mesmos filtros');
+  await evaluate('location.hash="ouvidoria"');await waitFor(()=>evaluate('!!document.querySelector("[data-manifest]")'));await click('[data-manifest]');await waitFor(()=>evaluate('!!document.querySelector(".quote")'));ok(!await evaluate('document.querySelector("#manifest-detail").textContent.includes("51999999999")'),'gestão não vê telefone');ok(!await evaluate('!!document.querySelector(".quote img")'),'comentário é texto, não HTML');
+  await login('ouvidoria');await evaluate('location.hash="ouvidoria"');await waitFor(()=>evaluate('!!document.querySelector("[data-manifest]")'));await click('[data-manifest]');await waitFor(()=>evaluate('!!document.querySelector("#attendance-form")'));ok(await evaluate('document.querySelector("#manifest-detail").textContent.includes("51999999999")'),'Ouvidoria vê contato autorizado');await fill('[name=relato]','Relato de atendimento preservado.');conflict=true;await submit('#attendance-form');await waitFor(()=>evaluate('!document.querySelector("#refresh-detail").hidden'));ok(await evaluate('document.querySelector("[name=relato]").value.includes("preservado")'),'conflito mantém relato');await click('#refresh-detail');await waitFor(()=>evaluate('document.querySelector("#attendance-form [type=submit]")?.disabled===false'));ok(await evaluate('document.querySelector("[name=relato]").value.includes("preservado")'),'recarregar mantém rascunho');await shot('ouvidoria-desktop');conflict=false;
+  await login('super_admin');await evaluate('location.hash="cadastro/perguntas"');await waitFor(()=>evaluate('!!document.querySelector("#question-form")'));await change('[name=metrica]','nota_10');ok(await evaluate('document.querySelectorAll("#preview-rating [data-rating]").length===10'),'prévia respeita escala');await fill('[name=limite_ouvidoria]','4');await submit('#question-form');await waitFor(()=>questionVersion===2);ok(calls.filter(c=>c.name==='ep_publicar_questionario').at(-1).body.p_metrica==='nota_10','nova versão publica escala');await waitFor(()=>evaluate('!!document.querySelector("#question-form")'));await shot('cadastro-desktop');
+  ok(await evaluate('document.querySelector("#question-form [name=metrica]").value==="nota_10"'),'versão publicada preserva escala ao recarregar');
+  await evaluate('location.hash="cadastro/escalas"');await waitFor(()=>evaluate('!!document.querySelector("[data-schedule]")'));ok(await evaluate('document.querySelector("#schedule-list").textContent.includes("Equipe A")'),'escala integrada');await change('#schedule-form [name=equipe]',Q);await submit('#schedule-form');await waitFor(()=>calls.some(c=>c.name==='ep_salvar_escala'));ok(calls.filter(c=>c.name==='ep_salvar_escala').at(-1).body.p_equipe===Q,'edição de escala encaminha equipe e turno');
+  await evaluate('location.hash="cadastro/gestores"');await waitFor(()=>evaluate('!!document.querySelector("#profile-form")'));ok(await evaluate('document.querySelector("[name=papel]").options.length===5'),'cinco perfis no cadastro');
+  await waitFor(()=>evaluate('document.querySelectorAll("[data-request]").length===2'));await click('[data-request]');
+  ok(await evaluate('document.querySelector("#request-decision [name=papel]").options.length===4&&!document.querySelector("#request-decision [name=papel] option[value=super_admin]")'),'aprovação só oferece funções inferiores');
+  ok(await evaluate('document.querySelector("#request-decision [name=papel]").value==="visualizador"'),'aprovação começa com menor acesso');
+  await change('#request-decision [name=papel]','admin_setor');ok(await evaluate('document.querySelector("#request-decision [name=setor]").required'),'admin de setor exige escopo');
+  await change('#request-decision [name=setor]',PA);await submit('#request-decision');await waitFor(()=>requests[0].situacao==='aprovada');
+  ok(calls.filter(c=>c.name==='ep_decidir_solicitacao').at(-1).body.p_setor===PA,'aprovação envia cargo e setor');
+  await waitFor(()=>evaluate('document.querySelectorAll("[data-request]").length===1'));await click('[data-request]');await change('#request-decision [name=decisao]','rejeitar');
+  await submit('#request-decision');ok(requests[1].situacao==='pendente','rejeição sem motivo não é enviada');
+  await fill('#request-decision [name=motivo]','Vínculo institucional não confirmado.');await submit('#request-decision');await waitFor(()=>requests[1].situacao==='rejeitada');ok(!calls.filter(c=>c.name==='ep_decidir_solicitacao').at(-1).body.p_papel,'rejeição não envia perfil');
+  await change('#request-status','rejeitada');await waitFor(()=>evaluate('!!document.querySelector("[data-request]")'));await click('[data-request]');ok(await evaluate('document.querySelector("#request-detail").textContent.includes("Vínculo institucional")&&!document.querySelector("#request-decision")'),'histórico mostra rejeição sem permitir nova decisão');
+  await evaluate('location.hash="cadastro/configuracao"');await waitFor(()=>evaluate('!!document.querySelector("#settings-form")'));ok(await evaluate('document.querySelector("[name=retencao_dias]").value==="90"'),'configuração institucional carregada');await fill('[name=privacidade_versao]','v2');await submit('#settings-form');await waitFor(()=>calls.some(c=>c.name==='ep_configurar_operacao'));ok(calls.filter(c=>c.name==='ep_configurar_operacao').at(-1).body.p_habilitada===true,'configuração publica aviso e estado da coleta');
+  await evaluate('location.hash="qrcodes"');await waitFor(()=>evaluate('document.querySelectorAll(".qr-card img:not([hidden])").length===4'));ok(await evaluate('[...document.querySelectorAll(".qr-card img")].every(i=>i.naturalWidth>0)'),'QRs locais renderizados');
+  await login('admin_setor');ok(await evaluate('document.querySelector("[name=setor]").disabled'),'admin bloqueado no próprio setor');await evaluate('location.hash="cadastro/perguntas"');await waitFor(()=>evaluate('!!document.querySelector("#question-form")'));ok(await evaluate('document.querySelectorAll(".tabs a").length===2'),'admin não vê configurações globais');
+  await login('visualizador');ok(!await evaluate('!!document.querySelector("#export-csv")'),'visualizador não exporta');ok(!await evaluate('[...document.querySelectorAll(".sidebar a")].some(a=>a.hash==="#ouvidoria")'),'visualizador não vê manifestações');
+  for(const width of [320,390,768,1024,1440]){await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'gestão sem overflow '+width);}
+  await evaluate('location.hash="tv"');await waitFor(()=>evaluate('!!document.querySelector(".wall-value")'));ok(await evaluate('document.querySelector("#wall-results").textContent.includes("84")'),'TV usa snapshot real da API');await shot('tv-desktop');
+  await navigate('login');await click('a[href="#recuperar"]');await waitFor(()=>evaluate('document.querySelector("#auth-box h1")?.textContent.includes("Recuperar")'));ok(true,'recuperação acessível');
+  await evaluate('location.hash="cadastro-conta"');await waitFor(()=>evaluate('!!document.querySelector("[name=nome]")'));await fill('[name=nome]','Nova Conta');await fill('[name=email]','nova@example.invalid');await fill('[name=senha]','senha-longa-de-teste');await submit('#auth-form');await waitFor(()=>evaluate('document.querySelector(".form-feedback")?.textContent.includes("Super Admin")'));ok(await evaluate('document.querySelector(".form-feedback").textContent.includes("Super Admin")'),'cadastro orienta aguardar aprovação');ok(!calls.find(c=>c.name==='signup').body.data.papel,'cadastro não escolhe o próprio cargo');
+  await cdp('Page.navigate',{url:base+'/#access_token=token-gestao&refresh_token=refresh-gestao&type=recovery'});await waitFor(()=>evaluate('!!document.querySelector("[name=confirmacao]")'));ok(await evaluate('location.hash==="#senha"'),'token de recuperação removido da URL');
+  await fill('[name=senha]','senha-nova-de-teste');await fill('[name=confirmacao]','senha-nova-de-teste');await submit('#auth-form');await waitFor(()=>evaluate('document.querySelector("#auth-box h1")?.textContent.includes("Bem-vindo")'));ok(true,'senha atualizada pelo backend');
+  await login('gestao');await evaluate('sessionStorage.setItem("fhdod.session.v2",JSON.stringify({...JSON.parse(sessionStorage.getItem("fhdod.session.v2")),expires_at:1}))');await cdp('Page.reload');await waitFor(()=>calls.some(c=>c.name==='token'&&c.body.refresh_token),'renovar sessão ao recarregar');await waitFor(()=>evaluate('!!document.querySelector(".kpi")'));ok(calls.some(c=>c.name==='token'&&c.body.refresh_token),'sessão expirada é renovada');await click('.workspace-header [data-logout]');await waitFor(()=>evaluate('!!document.querySelector("#auth-form")'));ok(await evaluate('sessionStorage.getItem("fhdod.session.v2")===null'),'logout remove sessão');ok(!await evaluate('!!document.querySelector("#dashboard-results")'),'logout remove indicadores privados');
+  await evaluate(`{const box=document.createElement('div');box.id='hover-check';box.style='position:fixed;top:10px;left:10px;z-index:9999;background:white;padding:10px';box.innerHTML=['','secondary','subtle','danger'].map((v,i)=>'<button id="hover-'+i+'" class="button '+v+'">Teste</button>').join('');document.body.append(box);}`);
+  for(let i=0;i<4;i++){const rect=await evaluate(`(()=>{const r=document.querySelector('#hover-${i}').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',...rect});await pause(200);ok(await evaluate(`(()=>{const s=getComputedStyle(document.querySelector('#hover-${i}'));const lum=c=>{const rgb=c.match(/[0-9.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]};const a=lum(s.color),b=lum(s.backgroundColor);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5})()`),'contraste de hover variante '+i);}
+  await evaluate('document.querySelector("#hover-check").remove()');
+  ok(errors.length===0,errors.join('\n'));console.log(`OK: ${checks} verificações de interface em Edge real, usando a API v2 real e Supabase simulado.`);
+ }finally{socket?.close();browser?.kill();server.closeAllConnections();mock.closeAllConnections();await Promise.all([new Promise(r=>server.close(r)),new Promise(r=>mock.close(r))]);}
+})().catch(error=>{console.error(error);process.exitCode=1;});

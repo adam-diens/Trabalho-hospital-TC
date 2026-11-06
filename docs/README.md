@@ -16,4 +16,4 @@
 14. [Roteiro de pitch](pitch.md)
 15. [OpenAPI](../backend/openapi.yaml)
 
-**Estado em 06/11/2026:** banco v2 instalado conforme verificação compartilhada; migration 005 e API v2 preparados e testados localmente, ainda pendentes de homologação remota. O frontend e seu manual de telas representam a interface anterior. O contrato atual está no OpenAPI e na arquitetura do backend.
+**Estado em 06/11/2026:** frontend adaptado às páginas fornecidas do Figma e integrado à API v2. Testes locais aprovados; homologação remota e implantação pendentes. O manual simples e o registro das decisões ficam no [README principal](../README.md).

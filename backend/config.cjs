@@ -31,7 +31,7 @@ function readConfig(env = process.env) {
     supabaseUrl: url('SUPABASE_URL', true), publishableKey: env.SUPABASE_PUBLISHABLE_KEY || '',
     secretKey: env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || '',
     originSecret: env.ORIGIN_HMAC_SECRET || '', publicOrigin: url('PUBLIC_ORIGIN', true),
-    authRedirectUrl: url('AUTH_REDIRECT_URL'), allowSignup: env.ALLOW_SIGNUP === 'true',
+    authRedirectUrl: url('AUTH_REDIRECT_URL'), allowSignup: env.ALLOW_SIGNUP !== 'false',
     upstreamTimeoutMs: integer('UPSTREAM_TIMEOUT_MS', 8000, 100, 30000),
     maxBodyBytes: integer('MAX_BODY_BYTES', 32768, 1024, 262144),
     maxUpstreamBytes: integer('MAX_UPSTREAM_BYTES', 8388608, 1024, 33554432),

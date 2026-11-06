@@ -72,6 +72,11 @@ function semantics(route, data) {
   if (route.rpc === 'ep_definir_perfil' && ((data.papel === 'admin_setor' && !data.setor) || (data.papel !== 'admin_setor' && data.setor))) {
     throw new ApiError(400, 'INVALID_ROLE_SECTOR', 'Somente o administrador de setor deve ter um setor atribuído.');
   }
+  if(route.rpc==='ep_decidir_solicitacao' && (data.decisao==='aprovar'
+    ? (!data.papel || data.motivo!==undefined || (data.papel==='admin_setor'?!data.setor:!!data.setor))
+    : (data.papel!==undefined || data.setor!==undefined || !data.motivo?.trim() || data.motivo.trim().length<3))) {
+    throw new ApiError(400,'INVALID_APPROVAL','Escolha o perfil e o setor na aprovação, ou informe somente o motivo da rejeição.');
+  }
 }
 function createApplication(config, { fetchImpl = fetch, logger = record => process.stdout.write(JSON.stringify(record) + '\n') } = {}) {
   const db = createSupabase(config, fetchImpl);
@@ -133,7 +138,7 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
       if (route.rpc === 'ep_exportar') result = exportRows(result);
       if (Array.isArray(result) && result.length) {
         const cursor = route.rpc === 'ep_listar_manifestacoes' ? result.at(-1).protocolo :
-          route.rpc === 'ep_auditoria' ? result.at(-1).id : route.rpc === 'ep_listar_perfis' ? result.at(-1).user_id : result.at(-1).id;
+          route.rpc === 'ep_auditoria' ? result.at(-1).id : ['ep_listar_perfis','ep_listar_solicitacoes'].includes(route.rpc) ? result.at(-1).user_id : result.at(-1).id;
         if (cursor !== undefined) response.setHeader('X-Next-Cursor', String(cursor));
       }
       return result;
@@ -159,7 +164,9 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
           body: signin ? { email: data.email.trim(), password: data.senha } : { refresh_token: data.refresh_token },
         });
         if (!session?.access_token || !session.refresh_token || !session.user?.id) throw new ApiError(502, 'UPSTREAM_INVALID', 'Sessão inválida retornada pelo serviço.');
-        const profile = await db.rpc('ep_meu_perfil', {}, { token: session.access_token });
+        let profile;
+        try {profile = await db.rpc('ep_meu_perfil', {}, { token: session.access_token });}
+        catch(error){if(error.status===403)throw new ApiError(403,'ACCESS_NOT_APPROVED','Sua conta ainda não tem acesso aprovado ou foi desativada. Aguarde a análise do Super Admin.');throw error;}
         if (!profile || profile.user_id !== session.user.id) throw new ApiError(403, 'FORBIDDEN', 'Conta sem perfil institucional ativo.');
         return { access_token: session.access_token, refresh_token: session.refresh_token,
           expires_at: session.expires_at, expires_in: session.expires_in, token_type: 'bearer', perfil: profile };
@@ -168,7 +175,7 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
         if (!config.allowSignup) throw new ApiError(403, 'SIGNUP_DISABLED', 'Cadastro público desabilitado. Solicite uma conta ao administrador.');
         await db.auth('signup', { authAction: 'signup', body: { email: data.email.trim(), password: data.senha, data: { name: data.nome.trim() } } });
         response.statusCode = 202;
-        return { message: 'Se o cadastro for elegível, siga as instruções enviadas ao e-mail. O acesso depende de liberação institucional.' };
+        return { message: 'Se o cadastro for elegível, confirme seu e-mail quando solicitado e aguarde a análise do Super Admin. Criar a conta não libera acesso à gestão.' };
       case 'recover':
         if (!config.authRedirectUrl) throw new ApiError(503, 'RECOVERY_NOT_CONFIGURED', 'Recuperação de senha não configurada.');
         try { await db.auth('recover?redirect_to=' + encodeURIComponent(config.authRedirectUrl), { authAction: 'recover', body: { email: data.email.trim() } }); }
@@ -215,10 +222,21 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
         response.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="respostas-${data.inicio}-${data.fim}.csv"` });
         response.end(csv); return;
       }
-      case 'qrcodes': {
+      case 'qrcodes': case 'qr-svg': {
         if (!config.publicOrigin) throw new ApiError(503, 'PUBLIC_ORIGIN_REQUIRED', 'Configure o endereço público para gerar os links.');
         const sectors = await db.rpc('ep_setores');
         const allowed = actor.profile.papel === 'admin_setor' ? sectors.filter(s => s.id === actor.profile.setor_id) : sectors;
+        if (route.action === 'qr-svg') {
+          const canal = params.canal;
+          v.validate(canal, v.enumeration(['celular', 'tablet']), 'canal');
+          const sector = allowed.find(s => s.slug === params.slug);
+          if (!sector) throw new ApiError(403, 'SECTOR_DENIED', 'Setor não autorizado.');
+          const QRCode = require('qrcode');
+          const url = `${config.publicOrigin}/?${new URLSearchParams({ setor: sector.slug, modo: canal })}`;
+          const svg = await QRCode.toString(url, { type: 'svg', width: 280, margin: 4, errorCorrectionLevel: 'M' });
+          response.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Content-Disposition': `inline; filename="pesquisa-${sector.slug}-${canal}.svg"` });
+          response.end(svg); return;
+        }
         return allowed.flatMap(sector => ['celular', 'tablet'].map(canal => ({
           setor_id: sector.id, setor: sector.nome, canal, url: `${config.publicOrigin}/?${new URLSearchParams({ setor: sector.slug, modo: canal })}`,
         })));
@@ -280,6 +298,7 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
       try { pathname = decodeURIComponent(url.pathname); } catch { throw new ApiError(400, 'BAD_PATH', 'Endereço inválido.'); }
       const publicFiles = { '/': 'index.html', '/index.html': 'index.html', '/app.js': 'app.js', '/styles.css': 'styles.css', '/tablet.css': 'tablet.css' };
       let relative = publicFiles[pathname];
+      if (!relative && /^\/assets\/js\/(?:api|ui|patient|management|admin)\.js$/.test(pathname)) relative = pathname.slice(1);
       if (!relative && /^\/assets\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|svg|webp|ico)$/.test(pathname)) relative = pathname.slice(1);
       if (!relative) throw new ApiError(404, 'NOT_FOUND', 'Arquivo não encontrado.');
       const file = await fs.realpath(path.join(projectRoot, relative)).catch(() => null);
@@ -287,7 +306,7 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
       if (!file || (relative.startsWith('assets/') ? !file.startsWith(allowedRoot + path.sep) : file !== path.join(projectRoot, relative))) throw new ApiError(404, 'NOT_FOUND', 'Arquivo não encontrado.');
       const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon' };
       routeName = relative.startsWith('assets/') ? '/assets/*' : pathname;
-      response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+      response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
       const content = await fs.readFile(file);
       response.writeHead(200, { 'Content-Type': types[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Content-Length': content.length });
       response.end(request.method === 'HEAD' ? undefined : content);

@@ -57,6 +57,7 @@ const exportFields = { inicio: 'p_inicio', fim: 'p_fim', setor: 'p_setor', turno
 rpc('GET', '/exportacoes', 'Exportar página analítica sem contato nem texto livre', 'ep_exportar', exportFields, exporters, undefined, exportQuery);
 add('GET', '/exportacoes.csv', 'Baixar CSV compatível com Excel com todos os filtros', { action: 'csv', access: exporters, query: period });
 add('GET', '/qrcodes', 'Obter links por setor e dispositivo para geração de QR Codes', { action: 'qrcodes', access: roles });
+add('GET', '/qrcodes/:slug/:canal', 'Gerar QR Code SVG no próprio servidor', { action: 'qr-svg', access: roles });
 rpc('PUT', '/setores', 'Cadastrar setor ou atualizar nome e estado pelo slug', 'ep_salvar_setor',
   { slug: 'p_slug', nome: 'p_nome', ativo: 'p_ativo' }, ['super_admin'], v.object({ slug, nome: v.string(2, 120), ativo: v.boolean }, ['slug', 'nome']));
 rpc('POST', '/questionarios', 'Publicar nova versão com escalas por pergunta', 'ep_publicar_questionario',
@@ -73,6 +74,13 @@ rpc('PUT', '/escalas', 'Definir equipe do setor, data e turno', 'ep_salvar_escal
   v.object({ setor: v.uuid, equipe: v.uuid, data: v.date, turno: shift }, ['setor', 'equipe', 'data', 'turno']));
 rpc('GET', '/perfis', 'Listar perfis institucionais', 'ep_listar_perfis', { limite: 'p_limite', depois: 'p_depois' }, ['super_admin'], undefined,
   v.object({ limite: v.integer(1, 100), depois: v.uuid }));
+rpc('GET', '/solicitacoes', 'Consultar solicitações de acesso, somente Super Admin', 'ep_listar_solicitacoes',
+  { situacao: 'p_situacao', limite: 'p_limite', depois: 'p_depois' }, ['super_admin'], undefined,
+  v.object({ situacao: v.enumeration(['pendente','aprovada','rejeitada']), limite: v.integer(1,100), depois: v.uuid }));
+rpc('PUT', '/solicitacoes', 'Aprovar com perfil inferior ou rejeitar solicitação', 'ep_decidir_solicitacao',
+  { usuario:'p_usuario', decisao:'p_decisao', papel:'p_papel', setor:'p_setor', motivo:'p_motivo' }, ['super_admin'],
+  v.object({ usuario:v.uuid, decisao:v.enumeration(['aprovar','rejeitar']), papel:v.enumeration(roles.filter(r=>r!=='super_admin')),
+    setor:v.nullable(v.uuid), motivo:v.string(3,500) }, ['usuario','decisao']));
 rpc('PUT', '/perfis', 'Conceder ou revogar um dos cinco perfis', 'ep_definir_perfil',
   { usuario: 'p_usuario', nome: 'p_nome', papel: 'p_papel', setor: 'p_setor', ativo: 'p_ativo' }, ['super_admin'],
   v.object({ usuario: v.uuid, nome: v.string(2, 120), papel: v.enumeration(roles), setor: v.nullable(v.uuid), ativo: v.boolean }, ['usuario', 'nome', 'papel']));

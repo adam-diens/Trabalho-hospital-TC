@@ -3,7 +3,7 @@
   "info": {
     "title": "FHDOD — API de Experiência do Paciente",
     "version": "2.0.0",
-    "description": "API própria sobre o banco v2. JWT institucional para gestão; coleta anônima pelo backend. Nenhuma tabela ou credencial operacional exposta. O frontend anterior ainda precisa ser adaptado."
+    "description": "API própria sobre o banco v2, integrada ao frontend. JWT institucional para gestão; coleta anônima pelo backend. Nenhuma tabela ou credencial operacional exposta."
   },
   "servers": [
     {
@@ -2189,6 +2189,92 @@
         }
       }
     },
+    "/api/v2/qrcodes/{slug}/{canal}": {
+      "get": {
+        "summary": "Gerar QR Code SVG no próprio servidor",
+        "operationId": "get_api_v2_qrcodes__slug__canal",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin",
+          "admin_setor",
+          "gestao",
+          "ouvidoria",
+          "visualizador"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{1,39}$"
+            }
+          },
+          {
+            "name": "canal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "celular",
+                "tablet"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR Code gerado localmente, com endereço público configurado e isolamento por setor.",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
     "/api/v2/equipes": {
       "get": {
         "summary": "Listar equipes permitidas",
@@ -2693,6 +2779,208 @@
                   "usuario",
                   "nome",
                   "papel"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    },
+    "/api/v2/solicitacoes": {
+      "get": {
+        "summary": "Consultar solicitações de acesso, somente Super Admin",
+        "operationId": "get_api_v2_solicitacoes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "parameters": [
+          {
+            "name": "situacao",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pendente",
+                "aprovada",
+                "rejeitada"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      },
+      "put": {
+        "summary": "Aprovar com perfil inferior ou rejeitar solicitação",
+        "operationId": "put_api_v2_solicitacoes",
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "x-roles": [
+          "super_admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "usuario": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  "decisao": {
+                    "type": "string",
+                    "enum": [
+                      "aprovar",
+                      "rejeitar"
+                    ]
+                  },
+                  "papel": {
+                    "type": "string",
+                    "enum": [
+                      "admin_setor",
+                      "gestao",
+                      "ouvidoria",
+                      "visualizador"
+                    ]
+                  },
+                  "setor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "usuario",
+                  "decisao"
                 ],
                 "additionalProperties": false
               }

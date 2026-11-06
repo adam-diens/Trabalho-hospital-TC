@@ -5,7 +5,7 @@ const errorSchema = { type: 'object', required: ['error'], properties: { error: 
 } } } };
 const openapi = {
   openapi: '3.1.0', info: { title: 'FHDOD — API de Experiência do Paciente', version: '2.0.0',
-    description: 'API própria sobre o banco v2. JWT institucional para gestão; coleta anônima pelo backend. Nenhuma tabela ou credencial operacional exposta. O frontend anterior ainda precisa ser adaptado.' },
+    description: 'API própria sobre o banco v2, integrada ao frontend. JWT institucional para gestão; coleta anônima pelo backend. Nenhuma tabela ou credencial operacional exposta.' },
   servers: [{ url: '/' }], paths: {}, components: { securitySchemes: { UserSession: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } }, schemas: { Error: errorSchema }, responses: {} },
 };
 const errors = { 400: 'Entrada inválida', 401: 'Sessão inválida', 403: 'Perfil, setor ou origem sem autorização', 409: 'Conflito de revisão ou integridade', 413: 'Corpo excede o limite', 415: 'Tipo de conteúdo inválido', 422: 'Exportação excede o limite', 429: 'Limite de tentativas', 502: 'Serviço de dados indisponível', 503: 'Configuração incompleta ou coleta desabilitada', 504: 'Timeout do serviço de dados' };
@@ -14,12 +14,12 @@ for (const route of definitions) {
   const path = route.path.replace(/:([a-z_]+)/g, '{$1}');
   const parameters = [];
   for (const match of route.path.matchAll(/:([a-z_]+)/g)) parameters.push({ name: match[1], in: 'path', required: true,
-    schema: match[1] === 'id' ? { type: 'string', format: 'uuid' } : { type: 'string', pattern: '^[a-z][a-z0-9_-]{1,39}$' } });
+    schema: match[1] === 'id' ? { type: 'string', format: 'uuid' } : match[1] === 'canal' ? { type:'string',enum:['celular','tablet'] } : { type: 'string', pattern: '^[a-z][a-z0-9_-]{1,39}$' } });
   for (const [name, schema] of Object.entries(route.query.properties)) parameters.push({ name, in: 'query', required: route.query.required.includes(name), schema });
   const resultSchema = route.action === 'pesquisa' ? {
     type: 'object', required: ['recebida', 'protocolo'], properties: { recebida: { const: true }, protocolo: { type: ['integer', 'null'] } },
   } : route.action === 'atender' ? { type: 'object', properties: { revisao: { type: 'integer' } } } : {};
-  const success = route.action === 'stream' ? { description: 'Fluxo SSE: eventos painel e erro. Usar fetch com Authorization; não colocar token na URL. Reconectar ao encerrar após cinco minutos.',
+  const success = route.action === 'qr-svg' ? {description:'QR Code gerado localmente, com endereço público configurado e isolamento por setor.',content:{'image/svg+xml':{schema:{type:'string'}}}} : route.action === 'stream' ? { description: 'Fluxo SSE: eventos painel e erro. Usar fetch com Authorization; não colocar token na URL. Reconectar ao encerrar após cinco minutos.',
     content: { 'text/event-stream': { schema: { type: 'string' } } } } : route.action === 'csv' ? {
     description: 'CSV UTF-8 com BOM, separador ponto e vírgula e defesa contra fórmulas; sem contato ou texto livre.', content: { 'text/csv': { schema: { type: 'string' } } },
   } : { description: 'Operação concluída. Listas usam X-Next-Cursor para continuação; listas vazias encerram a paginação.', content: json(resultSchema) };

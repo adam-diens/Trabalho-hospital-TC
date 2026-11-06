@@ -71,6 +71,13 @@ async function freePort() {
     }
     const checks = sqlFile(path.join(__dirname, 'contrato.sql')).split(/\r?\n/).filter(line => line.startsWith('OK:'));
     console.log(`OK: ${checks.length} verificações funcionais e de autorização em PostgreSQL real.`);
+    const approvals=sqlFile(path.join(__dirname,'aprovacao.sql')).split(/\r?\n/).filter(line=>line.startsWith('OK:'));
+    console.log(`OK: ${approvals.length} verificações de solicitação, aprovação, rejeição e hierarquia.`);
+    const decisions=await Promise.all(['aprovar','rejeitar'].map(decision=>concurrentQuery(`set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false); select public.ep_decidir_solicitacao('00000000-0000-0000-0000-000000000105','${decision}',${decision==='aprovar'?"'visualizador',null,null":"null,null,'Rejeição concorrente'"});`)));
+    assert.equal(decisions.filter(r=>r.code===0).length,1);
+    assert.equal(query("select count(*) from hospital.auditoria where acao='decidir_solicitacao' and alvo='00000000-0000-0000-0000-000000000105'"),'1');
+    assert.equal(query("select (s.situacao='aprovada')=exists(select 1 from hospital.perfis p where p.user_id=s.user_id and p.ativo) from hospital.solicitacoes_acesso s where user_id='00000000-0000-0000-0000-000000000105'"),'t');
+    console.log('OK: aprovação e rejeição concorrentes produzem uma única decisão consistente.');
     const catalog = sqlFile(path.join(root, 'supabase/operacoes/verificar_instalacao.sql')).trim().split(/\r?\n/);
     if (catalog.some(line => !line.endsWith('|t'))) throw new Error(`Verificação do catálogo falhou:\n${catalog.join('\n')}`);
     console.log(`OK: ${catalog.length} verificações de catálogo, RLS, grants e search_path.`);

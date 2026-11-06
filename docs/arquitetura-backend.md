@@ -2,9 +2,9 @@
 
 ## Estado e arquitetura
 
-A API Node foi adaptada ao banco v2. O frontend anterior não foi alterado e ainda chama rotas antigas, que agora retornam HTTP 410. A migração do frontend é a próxima etapa.
+Frontend e API Node usam o contrato v2. Os módulos em assets/js separam pesquisa, cliente HTTP, componentes, gestão e administração. Rotas antigas retornam HTTP 410.
 
-Fluxo: cliente → API `/api/v2` → Supabase Auth e RPCs `ep_*` → PostgreSQL. Não há acesso direto às tabelas por HTTP. O backend não exige dependências npm externas; usa módulos nativos do Node.js 22+.
+Fluxo: cliente → API `/api/v2` → Supabase Auth e RPCs `ep_*` → PostgreSQL. Não há acesso direto às tabelas por HTTP. O backend usa Node.js 22+ e a dependência qrcode para gerar SVG localmente. Execute npm ci antes de iniciar.
 
 | Arquivo | Responsabilidade |
 |---|---|
@@ -20,7 +20,7 @@ Fluxo: cliente → API `/api/v2` → Supabase Auth e RPCs `ep_*` → PostgreSQL.
 
 ## Atualizar o banco já instalado
 
-Executar somente [202611060005_leitura_administrativa.sql](../supabase/migrations/202611060005_leitura_administrativa.sql) no SQL Editor. Ela acrescenta consultas de configuração, setores inativos e questionários por versão, sem recriar tabelas. Recarregar o cache se necessário: `notify pgrst, 'reload schema';`.
+Aplicar a [migration 006](../supabase/migrations/202611060006_aprovacao_contas.sql) para solicitações e decisões de acesso. A [005](../supabase/migrations/202611060005_leitura_administrativa.sql) deve ser aplicada antes, caso ainda não esteja instalada. Cada migration é executada uma vez, sem reinstalar o bundle. Recarregar o cache se necessário: `notify pgrst, 'reload schema';`.
 
 A administração precisa consultar perguntas mesmo antes de habilitar a coleta; a RPC pública de formulário não permite isso. A nova leitura é restrita ao perfil/escopo autorizado. Instalações novas recebem essa migration no bundle normal. Não reinstalar o bundle no banco já configurado.
 
@@ -32,8 +32,8 @@ Usar `.env.example` como referência. Variáveis principais:
 - `SUPABASE_SECRET_KEY`: chave operacional `sb_secret_*`, usada somente para coleta e manutenção. Como alternativa, `SUPABASE_SERVICE_ROLE_KEY` aceita JWT legado. Nunca colocar essas chaves em código público.
 - `ORIGIN_HMAC_SECRET`: valor aleatório de pelo menos 32 bytes; manter o mesmo entre reinícios e réplicas.
 - `PUBLIC_ORIGIN`: endereço externo exato para os links dos setores. Não é derivado do cabeçalho Host do cliente.
-- `AUTH_REDIRECT_URL`: URL do futuro formulário de recuperação, autorizada também no Supabase Auth.
-- `ALLOW_SIGNUP=false`: cadastro público desabilitado por padrão; as contas podem ser criadas pelo painel do Supabase. Habilitar apenas se o hospital desejar cadastro seguido de aprovação.
+- `AUTH_REDIRECT_URL`: URL da aplicação para recuperação de senha, autorizada também no Supabase Auth.
+- `ALLOW_SIGNUP=true`: permite solicitar conta, sem conceder acesso. A migration 006 registra a solicitação via trigger do Auth; somente Super Admin aprova ou rejeita. O Supabase Auth também precisa permitir cadastros por e-mail. Use false para suspender novas solicitações pelo site.
 - `TRUSTED_PROXY_IPS`: somente IPs exatos dos proxies controlados. Por padrão, `X-Forwarded-For` é ignorado.
 - `CORS_ORIGINS`: origens extras exatas; não aceita curingas. O mesmo domínio de `PUBLIC_ORIGIN` já é autorizado.
 
@@ -75,7 +75,7 @@ A API calcula `p_origem_hash` por HMAC do IP confiável e executa a coleta com c
 
 Usar `Authorization: Bearer <access_token>` em toda operação institucional. A API consulta o Supabase Auth e o perfil ativo, sem cache de autorização. O próprio banco verifica as regras novamente. Não enviar tokens em URLs.
 
-Login e renovação devolvem tokens e perfil somente para contas com acesso ativo. Cadastro não concede perfil. Recuperação usa resposta genérica para evitar revelar contas. A troca de senha aceita sessão válida ou de recuperação, inclusive `nonce` quando exigido pelo Auth. A tela de recuperação ainda será implementada no frontend.
+Login e renovação devolvem tokens e perfil somente para contas com acesso ativo. Cadastro não concede perfil. GET/PUT /api/v2/solicitacoes permite ao Super Admin listar e decidir solicitações, com cursor por user_id. Aprovação oferece apenas admin_setor, gestao, ouvidoria e visualizador; setor é obrigatório somente para admin_setor. Rejeição exige motivo. Decisões são atômicas, auditadas e imutáveis pela rota; concessões posteriores seguem a administração de perfis existente. A fila inclui contas anteriores sem perfil, sem reativar perfis suspensos. Recuperação usa resposta genérica para evitar revelar contas. A troca de senha aceita sessão válida ou de recuperação, inclusive `nonce` quando exigido pelo Auth. A tela de recuperação remove os tokens do fragmento da URL antes de chamar a API. A sessão fica em sessionStorage, com renovação e revalidação do perfil na navegação protegida.
 
 Logout usa escopo local do Supabase; o frontend deve remover seus tokens. Como no Supabase, JWTs já emitidos podem continuar válidos até expirar; revogação imediata distribuída de access tokens não foi implementada nesta entrega.
 
@@ -89,7 +89,7 @@ JSON paginado usa `limite` e `depois`; respostas trazem `X-Next-Cursor`. Manifes
 
 CSV percorre páginas preservando os mesmos filtros, gera UTF-8 com BOM, separador `;` e proteção contra fórmulas. Não inclui telefone, comentário ou relato. Máximo padrão de 10 mil linhas, uma exportação por usuário e duas por instância; exceder o limite exige reduzir o período ou usar JSON paginado. Exportação durante coleta do dia atual não é um snapshot transacional entre páginas; para um relatório estável, usar dias encerrados.
 
-`/qrcodes` devolve links por setor/canal, limitados ao setor do administrador quando aplicável. As imagens dos QR Codes serão geradas na etapa de frontend; nenhuma URL é enviada a gerador externo pelo backend.
+`/qrcodes` devolve links por setor/canal, limitados ao setor do administrador quando aplicável. GET /qrcodes/:slug/:canal gera SVG autenticado localmente, com a mesma restrição de setor. A tela permite copiar, baixar e imprimir; nenhuma URL é enviada a gerador externo.
 
 ## Manutenção
 
