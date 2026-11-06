@@ -8,11 +8,16 @@ const files = fs.readdirSync(source).filter(f => /^\d{12,}_[a-z_]+\.sql$/.test(f
 if (!files.length) throw new Error('Nenhuma migration encontrada.');
 const manifest = [];
 const bodies = files.map(file => {
-  const sql = fs.readFileSync(path.join(source, file), 'utf8').replace(/\r\n/g, '\n');
-  if (!/^begin;\n/.test(sql) && !/^--[^\n]*\n(?:--[^\n]*\n)*begin;\n/.test(sql)) throw new Error(`Transação inicial ausente: ${file}`);
-  if (!/\ncommit;\s*$/.test(sql)) throw new Error(`Commit final ausente: ${file}`);
+  const sql = fs.readFileSync(path.join(source, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  // Aceita indentação e linhas vazias, sem remover BEGINs de funções internas.
+  const opening=/^(?:[ \t]*(?:--[^\n]*)?\n)*([ \t]*begin;[ \t]*\n)/i.exec(sql);
+  const closing=/\n[ \t]*commit;[ \t]*(?:\n[ \t]*)*$/i;
+  if (!opening) throw new Error(`Transação inicial ausente: ${file}`);
+  if (!closing.test(sql)) throw new Error(`Commit final ausente: ${file}`);
   manifest.push({ arquivo: file, sha256: crypto.createHash('sha256').update(sql).digest('hex') });
-  return `-- MIGRATION: ${file}\n${sql.replace(/^begin;\n/m, '').replace(/\ncommit;\s*$/, '')}`;
+  const start=opening[0].length-opening[1].length;
+  const body=(sql.slice(0,start)+sql.slice(opening[0].length)).replace(closing,'');
+  return `-- MIGRATION: ${file}\n${body}`;
 });
 const output = path.join(root, 'output', 'database');
 fs.mkdirSync(output, { recursive: true });

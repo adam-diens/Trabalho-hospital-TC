@@ -23,7 +23,7 @@
 
 ## Relatório de execução
 
-Os testes da API v2 (`npm test`) e do banco com integração HTTP (`npm run test:db`) passaram localmente. A suíte npm run test:frontend executa 63 verificações em Edge real, usando o servidor da API v2 e Supabase simulado. Substitui a suíte antiga do contrato v1. Cobertura percentual, acessibilidade com leitor de tela e integração remota ainda não foram medidas ou homologadas.
+Os testes da API v2 (`npm test`) e do banco com integração HTTP (`npm run test:db`) passaram localmente. A suíte npm run test:frontend executa 65 verificações em Edge real, usando o servidor da API v2 e Supabase simulado. Substitui a suíte antiga do contrato v1. Cobertura percentual, acessibilidade com leitor de tela e integração remota ainda não foram medidas ou homologadas.
 
 
 ## Validação do banco v2 — 06/11/2026
@@ -35,7 +35,7 @@ Os testes da API v2 (`npm test`) e do banco com integração HTTP (`npm run test
 - Seis migrations instaladas em sequência em cluster descartável.
 - 122 verificações funcionais, de integridade e autorização aprovadas.
 - Sete verificações de catálogo, grants, RLS e `search_path` aprovadas.
-- 29 cenários HTTP da API com Supabase simulado: perfis, validação, Auth, exportação, SSE, jobs, segurança e erros.
+- 34 cenários HTTP da API com Supabase simulado: perfis, validação, Auth, exportação, SSE, jobs, segurança e erros.
 - 27 operações HTTP da API executando RPCs reais no PostgreSQL: coleta/idempotência, perfis, Ouvidoria, conflito de revisão, exportação, equipes, escala e administração. Auth e gateway são simulados.
 - Instalador SQL único aplicado em outro banco limpo; catálogo comparado ao das migrations (funções, ACLs, colunas, constraints e índices).
 - Oito conexões simultâneas repetindo a mesma submissão: uma resposta e um protocolo.
@@ -58,8 +58,16 @@ O resultado demonstra o contrato local testado; não é uma certificação de pr
 
 ## Frontend integrado — 06/11/2026
 
-As 63 verificações cobrem coleta rápida/completa, escalas, privacidade, contato, repetição segura após falha, formulário indisponível, seleção de setor, cinco perfis, filtros e CSV, telefone restrito, texto escapado, conflito de atendimento preservando o relato, publicação de questionário, escalas, configuração, QR SVG, TV, recuperação de senha, renovação e logout. O painel foi verificado sem overflow nas larguras 320, 390, 768, 1024 e 1440 px. Imagens opcionais usam fixtures e ficam em output/frontend, fora do manual. Nenhum teste acessa o Supabase remoto.
+As 65 verificações cobrem coleta rápida/completa, escalas, privacidade, contato, repetição segura após falha, formulário indisponível, seleção de setor, cinco perfis, filtros e CSV, telefone restrito, texto escapado, conflito de atendimento preservando o relato, publicação de questionário, escalas, configuração, QR SVG, TV, recuperação de senha, renovação e logout. O painel foi verificado sem overflow nas larguras 320, 390, 768, 1024 e 1440 px. Imagens opcionais usam fixtures e ficam em output/frontend, fora do manual. Nenhum teste acessa o Supabase remoto.
 
 ## Aprovação de contas e contraste
 
 Mais 26 verificações SQL validam a fila, contas sem acesso, proibição de autopromoção, perfis inferiores, setor obrigatório, rejeição e auditoria. Uma aprovação e uma rejeição concorrentes produzem uma única decisão consistente. A API também testa o mapeamento do conflito HTTP 500/SQLSTATE 40001 para 409. No navegador, cadastro, aprovação, rejeição e histórico foram exercitados; quatro variantes de botão mantêm contraste mínimo de 4,5:1 no hover.
+
+## Preparação para hospedagem
+
+Cinco cenários adicionais da API verificam configuração de produção, URLs derivadas do Render/domínio próprio, .env ignorado em produção, IP/HMAC atrás do proxy, arquivos internos bloqueados, headers HTTPS/CSP, QR canônico e ciclo de manutenção. O smoke test de 20 requisições foi exercitado contra o servidor local em modo produção, com Supabase simulado; o endereço real só poderá ser verificado depois do deploy. O render.yaml passou na validação do schema oficial em https://render.com/schema/render.yaml.json. A suíte do navegador também verifica preservação e recuperação da sessão após erro transitório de renovação.
+
+Mantêm-se pendentes a validação do proxy real (incluindo dois visitantes distintos), Supabase Auth/SMTP, domínio/TLS, envio de pesquisa, aprovação, recuperação, SSE, CSV e execução do worker na hospedagem. Nenhum deploy ou alteração remota foi feito nesta etapa.
+
+A instalação reproduzível das 29 dependências foi conferida com npm ci (sem scripts de instalação), o servidor real iniciou em modo produção e respondeu ao health check, e npm audit --omit=dev retornou zero vulnerabilidades conhecidas. A execução local usou Node 24.14.1; o Blueprint fixa a linha 24 LTS no Render. O gerador do instalador passou a aceitar indentação/BOM sem alterar o SQL das migrations, e o catálogo do bundle foi comparado ao das seis migrations em PostgreSQL descartável.

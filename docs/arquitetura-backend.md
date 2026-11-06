@@ -4,7 +4,7 @@
 
 Frontend e API Node usam o contrato v2. Os módulos em assets/js separam pesquisa, cliente HTTP, componentes, gestão e administração. Rotas antigas retornam HTTP 410.
 
-Fluxo: cliente → API `/api/v2` → Supabase Auth e RPCs `ep_*` → PostgreSQL. Não há acesso direto às tabelas por HTTP. O backend usa Node.js 22+ e a dependência qrcode para gerar SVG localmente. Execute npm ci antes de iniciar.
+Fluxo: cliente → API `/api/v2` → Supabase Auth e RPCs `ep_*` → PostgreSQL. Não há acesso direto às tabelas por HTTP. O backend usa Node.js 24 LTS (compatível também com 22 LTS) e a dependência qrcode para gerar SVG localmente. Execute npm ci antes de iniciar.
 
 | Arquivo | Responsabilidade |
 |---|---|
@@ -31,13 +31,13 @@ Usar `.env.example` como referência. Variáveis principais:
 - `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`: Auth, leituras públicas e operações com JWT institucional.
 - `SUPABASE_SECRET_KEY`: chave operacional `sb_secret_*`, usada somente para coleta e manutenção. Como alternativa, `SUPABASE_SERVICE_ROLE_KEY` aceita JWT legado. Nunca colocar essas chaves em código público.
 - `ORIGIN_HMAC_SECRET`: valor aleatório de pelo menos 32 bytes; manter o mesmo entre reinícios e réplicas.
-- `PUBLIC_ORIGIN`: endereço externo exato para os links dos setores. Não é derivado do cabeçalho Host do cliente.
+- `PUBLIC_ORIGIN`: origem canônica HTTPS dos links. Em produção no Render, se omitida, usa RENDER_EXTERNAL_URL; AUTH_REDIRECT_URL também deriva dessa origem. Domínio próprio deve ser configurado explicitamente. Nunca usa Host do cliente.
 - `AUTH_REDIRECT_URL`: URL da aplicação para recuperação de senha, autorizada também no Supabase Auth.
 - `ALLOW_SIGNUP=true`: permite solicitar conta, sem conceder acesso. A migration 006 registra a solicitação via trigger do Auth; somente Super Admin aprova ou rejeita. O Supabase Auth também precisa permitir cadastros por e-mail. Use false para suspender novas solicitações pelo site.
-- `TRUSTED_PROXY_IPS`: somente IPs exatos dos proxies controlados. Por padrão, `X-Forwarded-For` é ignorado.
+- `TRUSTED_PROXY_IPS`: IPs exatos dos proxies controlados. Alternativamente, TRUST_PROXY_HOPS indica quantos ingressos fixos são confiáveis; não combinar os dois modos. No Render de produção, o padrão é um hop: o último endereço adicionado ao X-Forwarded-For, ignorando prefixos forjados. Fora dele, o padrão é zero. Validar a cadeia real do ingresso antes da operação; um CDN/proxy adicional exige rever a configuração.
 - `CORS_ORIGINS`: origens extras exatas; não aceita curingas. O mesmo domínio de `PUBLIC_ORIGIN` já é autorizado.
 
-`NODE_ENV=production` exige URLs HTTPS, credenciais e origem/HMAC configurados. Atrás de proxy, configurar também `HOST`/`PORT` conforme o provedor. O Node não termina TLS; o proxy deve fornecer HTTPS.
+`NODE_ENV=production` ignora .env em disco e exige URLs HTTPS e credenciais do provedor. O serviço web exige origem/HMAC e chave pública; o worker exige somente URL e chave operacional. O host padrão de produção é 0.0.0.0, e PORT vem do provedor. O Node não termina TLS; o proxy fornece HTTPS. Há modelos separados para desenvolvimento e produção.
 
 ## Rotas e fluxos
 
@@ -104,8 +104,14 @@ O servidor HTTP não inicia o worker automaticamente nem oferece uma rota públi
 
 Corpo JSON: 32 KiB; resposta upstream: 8 MiB; timeout upstream: 8 segundos. Datas reais, tipos, propriedades desconhecidas, campos reservados e consultas repetidas são validados. SQLSTATEs viram erros HTTP controlados; logs registram identificador, rota, método, status e duração, sem corpo, query, IP, senha, telefone ou tokens.
 
-Somente HTML/JS/CSS do frontend e imagens em `assets/` são servidos. `.env`, `.git`, SQLs, código do backend, testes e backups não são públicos. Headers de segurança, CORS explícito, limite de leitura/tentativas e HMAC reduzem abuso. O limite HTTP fica em memória por instância; múltiplas réplicas exigem também controle no gateway. A cota de coleta no PostgreSQL continua compartilhada por origem e setor.
+Somente HTML/JS/CSS autorizados do frontend e imagens em `assets/` são servidos. `.env`, `.git`, SQLs, código do backend, testes e backups não são públicos. Headers de segurança, CORS explícito, limite de leitura/tentativas e HMAC reduzem abuso. O limite HTTP fica em memória por instância; múltiplas réplicas exigem também controle no gateway. A cota de coleta no PostgreSQL continua compartilhada por origem e setor.
 
 Como a origem usa IP, pacientes na mesma rede podem compartilhar a cota; o hospital deve dimensionar os limites e a identificação confiável dos quiosques na homologação. Declarar `canal=tablet` não concede uma cota maior. Monitoramento, restauração de backup, políticas de texto livre e carga real ainda dependem do ambiente de produção.
 
 Referências: [chaves do Supabase](https://supabase.com/docs/guides/getting-started/api-keys), [Auth REST](https://supabase.github.io/auth/), [logout](https://supabase.com/docs/guides/auth/signout).
+
+## Deploy e validação
+
+O render.yaml provisiona web e worker separados, uma instância cada, branch developer e publicação manual. O build usa npm ci, npm run check e npm test. O esquema oficial do Blueprint foi validado localmente. Nenhuma migration roda no deploy. O servidor fecha conexões em até dez segundos ao receber SIGTERM; o worker aguarda a tarefa em andamento sem iniciar outra. Falhas da TV não impedem o expurgo.
+
+O passo a passo, variáveis e ajustes do Supabase Auth ficam no [README](../README.md#hospedar-no-render). O comando deploy:check verifica HTTPS/headers, arquivos públicos, bloqueio de arquivos internos, CORS, saúde, leitura pública e TV, sem alterar dados. O cache da TV continua sujeito às regras de volume, intervalo e validade do banco. Vercel não recebe um adaptador nesta versão.

@@ -3,12 +3,18 @@ const net = require('node:net');
 const { ApiError } = require('./errors.cjs');
 
 const normalizeIp = ip => ip?.startsWith('::ffff:') ? ip.slice(7) : ip;
-function clientIp(request, trustedProxies = []) {
+function clientIp(request, trustedProxies = [], trustedProxyHops = 0) {
   const peer = normalizeIp(request.socket.remoteAddress);
   const trusted = new Set(trustedProxies.map(normalizeIp));
-  if (!trusted.has(peer) || !request.headers['x-forwarded-for']) return peer;
+  if ((!trustedProxyHops && !trusted.has(peer)) || !request.headers['x-forwarded-for']) return peer;
   const chain = String(request.headers['x-forwarded-for']).split(',').map(s => normalizeIp(s.trim()));
   if (chain.length > 10 || chain.some(ip => !net.isIP(ip))) throw new ApiError(400, 'INVALID_PROXY_CHAIN', 'Origem de conexão inválida.');
+  // Confiança por número fixo de proxies: ignora prefixos enviados pelo cliente.
+  // Só configurar quando toda entrada passar pelo mesmo ingresso controlado.
+  if(trustedProxyHops){
+    if(chain.length<trustedProxyHops)throw new ApiError(400,'INVALID_PROXY_CHAIN','Origem de conexão inválida.');
+    return chain[chain.length-trustedProxyHops];
+  }
   let current = peer;
   for (let i = chain.length - 1; i >= 0 && trusted.has(current); i--) current = chain[i];
   return current;
@@ -19,7 +25,7 @@ function createSecurity(config) {
   let lastCleanup = 0;
   function originHash(request, requireStable = false) {
     if (requireStable && !config.originSecret) throw new ApiError(503, 'COLLECTION_NOT_CONFIGURED', 'Coleta não configurada no servidor.');
-    return crypto.createHmac('sha256', config.originSecret || fallback).update(clientIp(request, config.trustedProxies) || 'unknown').digest('hex');
+    return crypto.createHmac('sha256', config.originSecret || fallback).update(clientIp(request, config.trustedProxies,config.trustedProxyHops) || 'unknown').digest('hex');
   }
   function limit(request, category, count, windowMs) {
     const now = Date.now();

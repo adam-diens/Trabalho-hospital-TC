@@ -15,10 +15,16 @@ async function refresh() {
   if (!token) throw new ApiError(401, 'AUTH_REQUIRED', 'Entre novamente com sua conta.');
   refreshing = (async () => {
     try {
-      const response = await fetch('/api/v2/auth/renovar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: token }), signal: AbortSignal.timeout(12000) });
-      const data = await response.json();
+      let response;
+      try{response=await fetch('/api/v2/auth/renovar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: token }), signal: AbortSignal.timeout(12000) });}
+      catch{throw new ApiError(0,'NETWORK_ERROR','Não foi possível renovar a sessão agora. Verifique a conexão e tente novamente.');}
+      const data = await response.json().catch(()=>({}));
       if (savedEpoch !== epoch) throw new DOMException('Sessão alterada', 'AbortError');
-      if (!response.ok) { saveSession(null); window.dispatchEvent(new Event('fhdod:unauthorized')); throw new ApiError(response.status, data.error?.code, data.error?.message || 'Entre novamente.'); }
+      if (!response.ok) {
+        if([401,403].includes(response.status)){saveSession(null);window.dispatchEvent(new Event('fhdod:unauthorized'));}
+        throw new ApiError(response.status,data.error?.code,data.error?.message||'Não foi possível renovar a sessão agora. Tente novamente.');
+      }
+      if(!data.access_token||!data.refresh_token||!data.perfil)throw new ApiError(502,'INVALID_SESSION_RESPONSE','Não foi possível confirmar a renovação da sessão. Tente novamente.');
       current = { ...data, expires_at: data.expires_at || Math.floor(Date.now() / 1000) + Number(data.expires_in || 3600) };
       try { sessionStorage.setItem(KEY, JSON.stringify(current)); } catch {}
     } finally { refreshing = null; }

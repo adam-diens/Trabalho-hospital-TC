@@ -113,7 +113,8 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
     };
     const deadline = setTimeout(finish, config.streamMaxMs);
     response.once('close', finish);
-    response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+    response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
+    response.flushHeaders();
     response.write('retry: 15000\n\n');
     async function tick() {
       if (closed) return;

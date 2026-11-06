@@ -90,7 +90,8 @@ async function route(){
   }catch(error){
     if(!ctx.alive()||error.name==='AbortError')return;
     if(error.status===401||error.status===403){saveSession(null);authMessage=error.message;navigate('login');return;}
-    root.innerHTML=`<main id="main-content" class="patient-main"><section class="patient-card"><h1>Não foi possível abrir esta página.</h1>${notice(error.message,true)}<a class="button secondary" href="#login">Acesso da equipe</a><a href="#pesquisa" class="text-button">Voltar à pesquisa</a></section></main>`;
+    root.innerHTML=`<main id="main-content" class="patient-main"><section class="patient-card"><h1>Não foi possível abrir esta página.</h1>${notice(error.message,true)}<button class="button" id="route-retry">Tentar novamente</button><a class="button secondary" href="#login">Acesso da equipe</a><a href="#pesquisa" class="text-button">Voltar à pesquisa</a></section></main>`;
+    $('#route-retry',root).addEventListener('click',()=>route());
   }
 }
 callback();route();

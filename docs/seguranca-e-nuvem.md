@@ -1,32 +1,11 @@
-# Segurança e nuvem
+# Segurança e hospedagem
 
-> Registro histórico do ambiente anterior; os avisos abaixo não foram verificados novamente no Supabase remoto nesta reconstrução. Para as permissões, instalação e limites do banco v2, consulte [docs/modelo-de-dados-e-requisitos.md](modelo-de-dados-e-requisitos.md). O banco v2 ainda não foi implantado e o backend atual ainda precisa ser adaptado.
+O frontend acessa somente a API própria. Credenciais do Supabase ficam no servidor; respostas, contatos e permissões são controlados pelas RPCs do banco v2. O schema hospital mantém RLS e não deve ser exposto no PostgREST. As funções usam search_path fixo e grants explícitos. A criação da conta não concede perfil; o Super Admin decide as solicitações.
 
-## Conexão
+A configuração de hospedagem está no [README](../README.md#hospedar-no-render), no [render.yaml](../render.yaml) e no [.env.production.example](../.env.production.example). O .env local fica ignorado pelo Git e não é lido em produção: as variáveis vêm do provedor. Site e API usam a mesma origem HTTPS, CSP restritiva, headers de segurança e autorização por requisição. QR Codes usam a origem configurada ou a URL externa do Render, nunca o Host do cliente.
 
-Banco Supabase ativo `Trabalho-hospital-TC`, projeto `sorjfxmcqfbxddgfdaka`, região us-west-2. O navegador chama a API Node local em `/api`; `backend/server.cjs` usa `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` de `.env` para acessar as APIs do projeto. A chave publishable não tem privilégios elevados e as regras de dados continuam no RLS/funções SQL. `.env` é ignorado pelo Git; `.env.example` contém somente valores ilustrativos. Não usamos chave secret/service role nem senha de banco no frontend. A RPC pública agregada inclui um elogio aprovado; o TV Wall ignora texto e mostra somente números. Nenhum contato foi consultado.
+No Render há um web service e um worker. O worker recebe apenas URL e chave operacional, publica a TV em grupos e remove contatos vencidos. Os limites HTTP ficam em memória por instância; a cota de coleta é compartilhada no PostgreSQL. O proxy deve fornecer uma cadeia X-Forwarded-For controlada: a configuração preparada considera um hop, com leitura pela direita. Validar esse ingresso na hospedagem antes do uso; um proxy adicional exige rever a confiança. IP é convertido em HMAC, sem registro do IP bruto nos logs da aplicação.
 
-O projeto contém oito tabelas com RLS ligado e as funções RPC descritas. O sistema usa RPC para inserir/consultar dados; não faz acesso direto às tabelas de resposta/contato.
+Os logs registram identificador de requisição, rota, status e duração, sem corpo, senha, telefone ou tokens. Segredos, migrations, código do backend, testes e configuração de deploy não são servidos ao navegador. HTTPS é terminado no ingresso do provedor; o Node atende pela porta interna.
 
-## Avisos de segurança encontrados
-
-O Supabase Security Advisor identificou:
-
-- RLS sem política em `auditoria`, `contatos`, `respostas` e `tentativas`.
-- Funções `SECURITY DEFINER` executáveis por `anon` e/ou `authenticated`, incluindo `registrar_resposta`, `registrar_contato`, `complementar_resposta`, `tv_resumo` e `perfil_atual`.
-- `search_path` mutável em `turno_de` e `limpar_pii`.
-- Proteção de senhas vazadas desativada.
-
-Algumas funções validam perfil, limitação ou consentimento internamente; ainda assim, grants privilegiados precisam de auditoria antes de uso com dados reais. O projeto foi apenas inspecionado: não alterei políticas, grants, usuários ou dados.
-
-## Recomendações de operação
-
-1. Rever grants e lógica de funções `SECURITY DEFINER`; restringir execução por papel e fixar `search_path`.
-2. Habilitar proteção contra senha vazada, MFA de administradores, TLS e backups.
-3. Provisionar usuários individuais e papéis no Auth, sem contas compartilhadas.
-4. Definir retenção/expurgo de telefone, finalidade e canal do titular com a Fundação.
-5. Manter contato opcional, consentimento explícito e acesso da Ouvidoria auditado.
-6. Restringir origens/CSP do site publicado e monitorar abuso/rate limit.
-7. Testar autorização por papel e recuperação antes de qualquer dado real.
-
-Papéis: `super_admin`, `admin_setor`, `gestao`, `ouvidoria`, `visualizador`. Para execução local, copie `.env.example` para `.env`, configure URL e publishable key do painel Supabase, então execute `node backend/server.cjs`. O arquivo `.env` nunca deve ser commitado. Não configure secret/service role nessa aplicação.
+Antes do uso com dados reais, homologar permissões com contas dos cinco perfis, SMTP/recuperação de senha, duas origens de rede, limites/carga, manutenção, backups e restauração. A instituição deve aprovar o aviso, finalidade e retenção. Os testes locais não substituem essa homologação. Não foram inspecionados nem alterados serviços remotos nesta preparação.

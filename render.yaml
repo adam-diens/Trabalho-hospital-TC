@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# Web e worker usam planos pagos para operação contínua. Revisar antes de criar.
+# Nenhuma migration é aplicada automaticamente ao Supabase.
+services:
+  - type: web
+    name: fhdod-web
+    runtime: node
+    plan: 0.5c-512mb
+    branch: developer
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: npm ci --omit=dev --ignore-scripts && npm run check && npm test
+    startCommand: npm start
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOW_SIGNUP
+        value: "true"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: ORIGIN_HMAC_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+  - type: worker
+    name: fhdod-jobs
+    runtime: node
+    plan: 0.5c-512mb
+    branch: developer
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: npm ci --omit=dev --ignore-scripts && npm run check && npm test
+    startCommand: npm run jobs
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: SUPABASE_URL
+        fromService:
+          type: web
+          name: fhdod-web
+          envVarKey: SUPABASE_URL
+      - key: SUPABASE_SECRET_KEY
+        fromService:
+          type: web
+          name: fhdod-web
+          envVarKey: SUPABASE_SECRET_KEY

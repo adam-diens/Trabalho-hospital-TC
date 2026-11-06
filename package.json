@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "engines": {
-    "node": ">=22"
+    "node": "^22.0.0 || ^24.0.0"
   },
   "scripts": {
     "dev": "node backend/server.cjs",
@@ -15,7 +15,9 @@
     "db:bundle": "node scripts/build-database.cjs",
     "api:spec": "node scripts/build-api.cjs",
     "jobs:once": "node backend/worker.cjs",
-    "jobs": "node backend/worker.cjs --watch"
+    "jobs": "node backend/worker.cjs --watch",
+    "check": "node scripts/check.cjs",
+    "deploy:check": "node scripts/check-deploy.cjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
