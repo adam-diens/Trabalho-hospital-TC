@@ -9,6 +9,6 @@
 - Coleta atômica e idempotente; locks na ordem setor → questionário para publicação/coleta, advisory lock para chave de envio e contadores por `UPSERT` atômico.
 - RLS em todas as tabelas internas e nenhum grant direto para clientes, inclusive papel operacional. Funções verificam perfil ativo e setor; `NULL` nunca concede acesso.
 - RPCs `SECURITY DEFINER` com `search_path=''`, nomes qualificados e grants por assinatura. Não expor helpers nem schema `hospital` na Data API.
-- `auth.users` é gerenciado pelo Supabase; não criar cópia de senhas ou excluir schemas nativos. Exclusão de conta com referências é bloqueada; desativar perfil preserva histórico.
+- `auth.users` é gerenciado pelo Supabase; não criar cópia de senhas ou excluir schemas nativos. Exclusão de conta vinculada a perfis ou histórico pode ser bloqueada; desativar perfil preserva histórico.
 - Auditoria/histórico/respostas/perguntas são imutáveis pela API. Telefone separado com consentimento versionado e expurgo operacional. Texto livre requer política de retenção própria antes de produção.
 - Testar integridade, autorizações, isolamento e concorrência em PostgreSQL real com `npm run test:db`. Testes com Auth simulado não substituem homologação JWT/PostgREST.

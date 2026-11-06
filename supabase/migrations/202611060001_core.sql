@@ -1,6 +1,6 @@
 -- Banco v2. Instalação limpa, PostgreSQL 15+ / Supabase. Executar em ordem.
 begin;
--- Não instalar ao lado das RPCs vulneráveis do protótipo.
+-- Instalação exige banco de domínio limpo. Preserve os schemas nativos do Supabase.
 do $$ begin
   if exists (select 1 from information_schema.tables where table_schema='public'
              and table_name in ('respostas','perfis','contatos','escala','perguntas','setores')) then
@@ -203,7 +203,7 @@ create table hospital.tv_publicacoes (
   fim date not null
 );
 
--- Travas estruturais também se aplicam a INSERT/UPDATE administrativo acidental.
+-- Triggers preservam as invariantes também em alterações administrativas.
 create function hospital.validar_resposta() returns trigger language plpgsql set search_path='' as $$
 declare q hospital.questionarios; ts timestamptz := statement_timestamp(); h int;
 begin

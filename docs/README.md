@@ -1,19 +1,25 @@
-# Indice da entrega
+# Documentação
 
-1. [Requisitos e rastreabilidade](requisitos.md)
-2. [Personas, fluxo e decisoes UX](ux-personas-e-fluxo.md)
-3. [Arquitetura do backend](arquitetura-backend.md)
-4. [Padroes Git e Kanban](padroes-git.md)
-5. [Plano de testes e status](plano-e-relatorio-de-testes.md)
-6. [Modelo de dados e requisitos](modelo-de-dados-e-requisitos.md)
-7. [Padroes do banco](padroes-banco-de-dados.md)
-8. [Classes e consultas](mapeamento-classes-e-consultas.md)
-9. [Seguranca e nuvem](seguranca-e-nuvem.md)
-10. [Manual de uso](manual-do-usuario.md)
-11. [Administracao de setores e modo tablet](administracao-tablet.md)
-12. [Perguntas opcionais por setor](perguntas-por-setor.md)
-13. [Plano de negocio](plano-de-negocio.md)
-14. [Roteiro de pitch](pitch.md)
-15. [OpenAPI](../backend/openapi.yaml)
+Comece pelo [README principal](../README.md) para instalar e executar a aplicação.
 
-**Estado em 06/11/2026:** frontend adaptado às páginas fornecidas do Figma e integrado à API v2. Testes locais aprovados; homologação remota e implantação pendentes. O manual simples e o registro das decisões ficam no [README principal](../README.md).
+## Tutoriais
+
+| Preciso… | Guia |
+|---|---|
+| Responder, solicitar conta, consultar indicadores ou atender manifestações | [Manual da aplicação](manual-do-usuario.md) |
+| Cadastrar setores, publicar perguntas e organizar equipes | [Perguntas e escalas](perguntas-por-setor.md) |
+| Preparar tablet, imprimir QR Codes ou exibir a TV | [Tablet, QR Codes e TV](administracao-tablet.md) |
+| Instalar ou atualizar o banco | [Banco e modelo de dados](modelo-de-dados-e-requisitos.md) |
+| Publicar e configurar o domínio | [Hospedagem no Render](seguranca-e-nuvem.md) |
+| Entender ou alterar a API | [Arquitetura](arquitetura-backend.md) e [caminho dos dados](mapeamento-classes-e-consultas.md) |
+| Colaborar no repositório | [Git](padroes-git.md) e [padrões do banco](padroes-banco-de-dados.md) |
+
+## Processo e entrega
+
+- [Processo, justificativas e experiência de uso](ux-personas-e-fluxo.md).
+- [Requisitos e critérios de aceite](requisitos.md).
+- [Como executar os testes e resultados registrados](plano-e-relatorio-de-testes.md).
+- [Proposta de negócio](plano-de-negocio.md) e [roteiro de apresentação](pitch.md): material acadêmico, com hipóteses de evolução identificadas.
+- [Contrato OpenAPI](../backend/openapi.yaml).
+
+A implementação tem testes locais aprovados. Implantação e homologação no ambiente real continuam sendo uma etapa própria; a documentação não comprova publicação ou aceite institucional.

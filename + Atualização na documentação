@@ -1,0 +1,27 @@
+ README.md                                          | 146 [32m+++++++++++++[m[31m--------[m
+ assets/js/admin.js                                 |   4 [32m+[m[31m-[m
+ assets/js/management.js                            |   9 [32m+[m[31m-[m
+ backend/app.cjs                                    |   2 [32m+[m[31m-[m
+ backend/supabase.cjs                               |   2 [32m+[m[31m-[m
+ docs/README.md                                     |  40 [32m+++[m[31m---[m
+ docs/administracao-tablet.md                       |  41 [32m+++[m[31m---[m
+ docs/arquitetura-backend.md                        | 130 [32m+++++[m[31m-------------[m
+ docs/manual-do-usuario.md                          |  49 [32m++++++[m[31m-[m
+ docs/mapeamento-classes-e-consultas.md             |  58 [32m++[m[31m------[m
+ docs/modelo-de-dados-e-requisitos.md               |   7 [32m+[m[31m-[m
+ docs/padroes-banco-de-dados.md                     |   2 [32m+[m[31m-[m
+ docs/padroes-git.md                                |   8 [32m+[m[31m-[m
+ docs/perguntas-por-setor.md                        |  77 [32m+++++[m[31m------[m
+ docs/pitch.md                                      |   6 [32m+[m[31m-[m
+ docs/plano-de-negocio.md                           |   4 [32m+[m[31m-[m
+ docs/plano-e-relatorio-de-testes.md                |  86 [32m++++[m[31m--------[m
+ docs/requisitos.md                                 |   3 [32m+[m[31m-[m
+ docs/seguranca-e-nuvem.md                          |  23 [32m+++[m[31m-[m
+ docs/ux-personas-e-fluxo.md                        |  19 [32m++[m[31m-[m
+ scripts/build-api.cjs                              |   2 [32m+[m[31m-[m
+ scripts/build-database.cjs                         |   3 [32m+[m[31m-[m
+ supabase/migrations/202611060001_core.sql          |   4 [32m+[m[31m-[m
+ .../202611060005_leitura_administrativa.sql        |   2 [32m+[m[31m-[m
+ supabase/operacoes/inspecionar.sql                 |   2 [32m+[m[31m-[m
+ tests/frontend/run.cjs                             |  12 [32m+[m[31m-[m
+ 26 files changed, 361 insertions(+), 380 deletions(-)

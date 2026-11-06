@@ -1,4 +1,3 @@
-// Gera um instalador para o SQL Editor a partir das migrations, sem cópias manuais.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -9,7 +8,7 @@ if (!files.length) throw new Error('Nenhuma migration encontrada.');
 const manifest = [];
 const bodies = files.map(file => {
   const sql = fs.readFileSync(path.join(source, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-  // Aceita indentação e linhas vazias, sem remover BEGINs de funções internas.
+  // Remove somente a transação externa; preserva blocos de funções SQL.
   const opening=/^(?:[ \t]*(?:--[^\n]*)?\n)*([ \t]*begin;[ \t]*\n)/i.exec(sql);
   const closing=/\n[ \t]*commit;[ \t]*(?:\n[ \t]*)*$/i;
   if (!opening) throw new Error(`Transação inicial ausente: ${file}`);

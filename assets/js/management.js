@@ -112,17 +112,18 @@ export async function mountManifestations(root, ctx, store) {
     panel.innerHTML=`<div class="row spread"><h2>Protocolo ${h(detail.protocolo)}</h2><span class="pill neutral">${h(statuses[state])}</span></div><p class="muted" style="font-size:12px">${h(types[detail.tipo])} · ${h(date(detail.criado_em,true))}</p><h3>Manifestação recebida</h3><div class="quote">${h(detail.comentario||'Solicitação de retorno sem comentário.')}</div>${canAttend?`<p class="notice" style="margin-top:16px">${detail.telefone?`Telefone autorizado: ${h(detail.telefone)}`:'Telefone não informado ou removido conforme a retenção.'}</p>`:''}${canAttend&&detail.interacoes?.length?`<h3 style="margin-top:22px">Histórico de atendimento</h3>${detail.interacoes.map(i=>`<div class="interaction">${h(i.relato)}<small>${h(statuses[i.situacao])} · ${h(date(i.criado_em,true))}</small></div>`).join('')}`:''}${canAttend&&state!=='encerrada'?`<form id="attendance-form" class="stack" style="margin-top:22px"><label class="field">Situação do atendimento<select name="situacao"><option value="em_atendimento">Em atendimento</option><option value="encerrada">Encerrar chamado</option></select></label><label class="field">Relato do atendimento (obrigatório)<textarea name="relato" minlength="3" maxlength="4000" required rows="4">${h(draft)}</textarea></label><button class="button full" type="submit">Salvar atendimento</button><p class="form-feedback" role="alert"></p><button class="text-button" id="refresh-detail" type="button" hidden>Atualizar chamado e manter meu relato</button></form>`:empty(state==='encerrada'?'Este atendimento foi encerrado.':'Seu perfil permite consultar a manifestação, sem registrar atendimento.')}`;
     const attend=$('#attendance-form',panel);
     if(attend)bindForm(attend,async values=>{
+      const target=selected,revision=detail.revisao;
       try{
-        await request(`/manifestacoes/${encodeURIComponent(selected)}/atendimentos`,{method:'POST',auth:true,body:{revisao:detail.revisao,situacao:values.get('situacao'),relato:values.get('relato')},signal:ctx.signal});
-        if(!ctx.alive())return;draft='';toast('Atendimento registrado.');await Promise.all([loadDetail(),loadList()]);
-      }catch(error){if(error.status===409){draft=String(values.get('relato'));const btn=$('[type=submit]',attend);btn.dataset.locked='true';btn.disabled=true;$('#refresh-detail',attend).hidden=false;}throw error;}
+        await request(`/manifestacoes/${encodeURIComponent(target)}/atendimentos`,{method:'POST',auth:true,body:{revisao:revision,situacao:values.get('situacao'),relato:values.get('relato')},signal:ctx.signal});
+        if(!ctx.alive())return;toast('Atendimento registrado.');if(selected===target&&attend.isConnected){draft='';await Promise.all([loadDetail(),loadList()]);}else await loadList();
+      }catch(error){if(error.status===409&&selected===target&&attend.isConnected){draft=String(values.get('relato'));const btn=$('[type=submit]',attend);btn.dataset.locked='true';btn.disabled=true;$('#refresh-detail',attend).hidden=false;}throw error;}
     });
     $('#refresh-detail',panel)?.addEventListener('click',()=>loadDetail());
   }
   async function loadDetail(){
     const seq=++detailSeq;panel.innerHTML='<p class="loading">Carregando manifestação…</p>';
     try{const result=await request('/manifestacoes/'+encodeURIComponent(selected),{auth:true,signal:ctx.signal});if(!ctx.alive()||seq!==detailSeq)return;detail=result;renderDetail();}
-    catch(error){if(ctx.alive()&&error.name!=='AbortError')panel.innerHTML=notice(error.message,true);}
+    catch(error){if(ctx.alive()&&seq===detailSeq&&error.name!=='AbortError')panel.innerHTML=notice(error.message,true);}
   }
   form.elements.protocolo.addEventListener('input',renderList);
   bindForm(form,async values=>{filter.situacao=values.get('situacao');filter.setor=profile.papel==='admin_setor'?profile.setor_id:values.get('setor');selected=null;detail=null;detailSeq++;panel.innerHTML=empty('Selecione uma manifestação.');await loadList();});

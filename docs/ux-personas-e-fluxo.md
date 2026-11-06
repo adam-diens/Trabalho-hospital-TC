@@ -1,6 +1,23 @@
-# UX, personas e decisões de produto
+# Registro do processo e justificativas
+
+## Etapas do desenvolvimento
+
+
+1. **Análise:** foram revisados o enunciado, o projeto atual e as imagens do protótipo no Figma para identificar requisitos e pendências.
+2. **Pesquisa simples:** uma pergunta obrigatória no início e etapas opcionais reduzem o esforço e permitem participar mesmo com pouco tempo. Celular e tablet oferecem alternativas de acesso.
+3. **Privacidade:** anonimato como opção padrão e telefone opcional com consentimento permitem avaliar sem exigir identificação.
+4. **Banco reconstruído:** scripts sobrepostos e falhas de integração e autorização motivaram a organização em migrations, com dados no schema `hospital` e permissões verificadas no banco.
+5. **Escalas configuráveis:** o banco v2 permite escolher rostinhos 1–5 ou nota 1–10 por pergunta. Versões preservam respostas antigas e indicadores separados evitam misturar escalas diferentes.
+6. **Equipes e indicadores:** a associação à escala é indicativa, sem atribuição de culpa individual. A divulgação pública usa dados agregados.
+7. **Backend v2:** a API passou a validar entradas, sessões e perfis, enviar a pesquisa de forma atômica, atender a Ouvidoria e exportar com os mesmos filtros do painel. SSE atualiza indicadores, e um worker separado cuida da TV e do expurgo.
+8. **Frontend integrado:** as páginas do Figma orientaram cores, navegação e composição, adaptadas às funções reais. Módulos separados organizam pesquisa, gestão e administração. Indicadores mantêm as escalas separadas; não são apresentados como NPS nem usam números demonstrativos em produção. A sessão fica na aba, o telefone respeita o perfil e os QR Codes dispensam serviços externos.
+9. **Aprovação e hierarquia:** novas contas geram solicitações no banco, sem perfil ativo. Somente o Super Admin decide, com auditoria e proteção contra decisões simultâneas. A aprovação oferece funções abaixo de Super Admin, começando por Visualizador; o solicitante não escolhe nem recebe privilégios automaticamente. Metadados do Auth nunca definem autorização.
+10. **Hospedagem:** Render mantém HTTP/SSE e manutenção em processos separados. Configuração de produção vem do provedor, com HTTPS, origem canônica e suporte ao proxy controlado; o worker recebe somente as credenciais necessárias. QR Codes acompanham a URL pública sem serviços de terceiros. Falhas da TV não interrompem o expurgo de contatos.
+11. **Validação:** testes da API, banco e navegador verificam fluxos, permissões, aprovação/rejeição, produção, envio com repetição segura, conflitos de atendimento, contraste de hover e responsividade. Auth/gateway são simulados; homologação remota, acessibilidade com leitor de tela e carga de produção continuam pendentes.
 
 ## Personas
+
+Perfis fictícios usados para orientar as decisões de interface e os fluxos; não representam entrevistas ou participantes identificados.
 
 ### Marisa, 58 — paciente/acompanhante
 

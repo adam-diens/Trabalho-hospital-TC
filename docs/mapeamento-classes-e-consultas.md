@@ -1,49 +1,17 @@
-# Mapeamento de persistência e consultas
+# Entender o caminho dos dados
 
-## Componentes em execução
+O projeto usa módulos JavaScript e funções SQL, sem uma camada de classes de repositório. O navegador chama `/api/v2`; a API valida a entrada e a sessão e executa RPCs do Supabase. As tabelas do domínio ficam em `hospital`, sem acesso direto pelo cliente.
 
-O frontend chama a API própria em `/api`. O backend Node encaminha chamadas permitidas às rotas REST/RPC do Supabase, sem expor a URL ou chave no navegador. Não existem classes JavaScript de repositório separadas; validações, transações, filtros de perfil e agregações ficam nas funções do banco.
+| Fluxo | RPC principal | Persistência |
+|---|---|---|
+| Abrir formulário | `ep_formulario` | Versão publicada, perguntas e aviso |
+| Enviar pesquisa | `ep_enviar_pesquisa` | Resposta, etapas, manifestação e contato em uma transação |
+| Consultar painel | `ep_painel` | Agregação por período, setor, turno, equipe e escala |
+| Consultar/atender Ouvidoria | `ep_listar_manifestacoes`, `ep_detalhar_manifestacao`, `ep_atender_manifestacao` | Manifestação, contato autorizado e interações |
+| Exportar | `ep_exportar` | Página analítica sem telefone ou texto livre |
+| Publicar/ler TV | `ep_publicar_tv`, `ep_tv` | Snapshot público agregado |
+| Aprovar conta | `ep_decidir_solicitacao` | Solicitação, perfil e auditoria |
 
-| Função RPC | Operação I/O e responsabilidade |
-|---|---|
-| `registrar_resposta` | Valida setor ativo/nota e limite de tentativas; cria `respostas` e registra `tentativas` |
-| `complementar_resposta` | Acrescenta `jornada`, `tipo` e comentário com sanitização PII |
-| `registrar_contato` | Exige aceite, valida telefone e grava `contatos` com protocolo |
-| `painel_resumo` | Agrega respostas por período/setor/turno/equipe com limite mínimo de cinco por equipe |
-| `listar_manifestacoes` | Lê manifestações; telefone aparece apenas para Ouvidoria/Super Admin e acesso é auditado |
-| `exportar_respostas` | Retorna campos autorizados sem telefone para gerar CSV |
-| `tv_resumo` | Agregados públicos dos últimos 30 dias sem dados de contato |
+Para localizar uma operação, procure sua rota em [backend/routes.cjs](../backend/routes.cjs), o tratamento HTTP em [backend/app.cjs](../backend/app.cjs) e a função SQL nas [migrations](../supabase/migrations). O [OpenAPI](../backend/openapi.yaml) descreve campos e permissões. Depois de alterar rotas, execute `npm run api:spec` e `npm run check`.
 
-## Consultas centrais
-
-As consultas abaixo refletem a lógica confirmada nas funções SQL do projeto, simplificada para leitura:
-
-```sql
--- Agregar por setor e período
-SELECT s.slug, s.nome, count(*) AS respostas, round(avg(r.nota), 2) AS media
-FROM public.respostas r JOIN public.setores s ON s.id = r.setor_id
-WHERE r.criado_em >= now() - make_interval(days => $1)
-  AND ($2 IS NULL OR s.slug = $2)
-  AND ($3 IS NULL OR r.turno = $3)
-GROUP BY s.slug, s.nome;
-
--- Cruzar escala; mostrar somente grupos com pelo menos cinco respostas
-SELECT e.equipe, count(*) AS n, round(avg(r.nota), 2) AS media
-FROM public.respostas r JOIN public.escala e
-  ON e.setor_id = r.setor_id AND e.turno = r.turno
- AND e.data = (r.criado_em AT TIME ZONE 'America/Sao_Paulo')::date
-GROUP BY e.equipe HAVING count(*) >= 5;
-
--- Ouvidoria: juntar contato na função de perfil; telefone omitido para outros perfis
-SELECT r.id, s.nome, r.criado_em, r.nota, r.tipo, r.comentario,
-       CASE WHEN $perfil IN ('super_admin','ouvidoria') THEN c.telefone END AS telefone
-FROM public.respostas r JOIN public.setores s ON s.id = r.setor_id
-LEFT JOIN public.contatos c ON c.resposta_id = r.id;
-```
-
-Usar RPCs existentes para manter política de perfil. Não consultar `contatos` diretamente no frontend.
-# Camada de API e persistência
-
-`backend/server.cjs` serve a aplicação e implementa `/api/health`, `/api/auth/v1/token` e uma lista restrita de rotas de dados. Injeta a chave publishable a partir de `.env` e encaminha o JWT do usuário quando presente. Não usa `service_role`/secret nem conexão direta por `DATABASE_URL`.
-
-`app.js` é o cliente da API: login/renovação de sessão, pesquisa, painel, exportação, TV Wall e administração chamam `/api`. As regras de autorização e persistência permanecem no Postgres via funções RPC e RLS.
+Filtros e escopo são verificados no servidor e no banco. As agregações mantêm as escalas separadas. Escalas de equipe usam setor/data/turno, e a unicidade dessa atribuição impede duplicar respostas nas junções. O envio usa UUID para repetir uma mesma tentativa sem duplicá-la. Consulte o [modelo de dados](modelo-de-dados-e-requisitos.md).

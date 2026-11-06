@@ -293,7 +293,7 @@ function createApplication(config, { fetchImpl = fetch, logger = record => proce
         if (!response.headersSent) sendJson(response, response.statusCode || 200, result ?? { ok: true });
         return;
       }
-      // Allowlist pública. Nunca servir .git, .env, backend, SQLs, testes ou backups.
+      // Somente arquivos explicitamente públicos podem ser servidos.
       if (!['GET', 'HEAD'].includes(request.method)) throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'Método não permitido.', { Allow: 'GET, HEAD' });
       let pathname;
       try { pathname = decodeURIComponent(url.pathname); } catch { throw new ApiError(400, 'BAD_PATH', 'Endereço inválido.'); }

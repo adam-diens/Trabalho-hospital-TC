@@ -1,86 +1,116 @@
-# Trabalho-hospital-TC
+# Experiência do Paciente — FHDOD
 
-Sistema de pesquisa de satisfação dos pacientes da Fundação Hospitalar Dr. Oswaldo Diesel, de Três Coroas, com pesquisa por setor, manifestações à Ouvidoria, painel de gestão e TV Wall.
+Aplicação de pesquisa de satisfação para a Fundação Hospitalar Dr. Oswaldo Diesel, de Três Coroas. Pacientes respondem pelo celular ou tablet; a equipe acompanha indicadores e manifestações conforme seu perfil.
 
 Projeto do Curso Técnico em Informática Integrado ao Ensino Médio da Escola Técnica Estadual Monteiro Lobato, desenvolvido por **Theo Keller Paiva, Adam Romão Dientsmann e Ygor Marcadenti Squena**. Contato: [theokpaiva@gmail.com](mailto:theokpaiva@gmail.com).
 
-## Executar localmente
+## Rodar no seu computador
 
-1. Instale Node.js 24 LTS (compatível também com 22 LTS).
-2. Execute `npm ci` para instalar as dependências.
-3. Copie `.env.example` para `.env`, se ainda não existir, e configure `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `ORIGIN_HMAC_SECRET` (aleatório, mínimo 32 bytes) e `PUBLIC_ORIGIN`. Segredos ficam somente no servidor.
-4. Execute `npm run dev` e acesse [http://127.0.0.1:5173](http://127.0.0.1:5173). Para atualizar a TV e executar a retenção de contatos, mantenha `npm run jobs` em outro terminal.
+### 1. Preparar o ambiente
 
-**Estado atual:** frontend e backend integrados pela API `/api/v2`, com testes locais aprovados. As telas foram refeitas a partir das páginas fornecidas do Figma. A homologação com Auth e dados do Supabase real e a implantação pública continuam pendentes.
+Instale Node.js 24 LTS (22 LTS também é compatível), Git e tenha um projeto Supabase. Clone este repositório, entre na pasta e instale as dependências:
 
-## Hospedar no Render
+```powershell
+npm.cmd ci
+```
 
-O [render.yaml](render.yaml) prepara um serviço web (site + API) e um worker (TV a cada 15 minutos e expurgo diário), usando a branch `developer`. Os dois serviços usam planos pagos para operação contínua; revise os valores no Render antes de criar. O banco continua no Supabase. A Vercel não está configurada nesta entrega: exigiria adaptar a execução da API e agendar a manutenção fora do processo contínuo atual.
+Os exemplos usam PowerShell. Em outros terminais, pode usar `npm` no lugar de `npm.cmd`.
 
-1. Envie as alterações ao repositório. No Render, crie um **Blueprint**, conecte o repositório e selecione `developer`.
-2. Informe `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SECRET_KEY` quando solicitado. O Blueprint gera o HMAC estável e configura o worker; não envie o `.env` local. Consulte [.env.production.example](.env.production.example) para as variáveis de produção.
-3. No domínio `onrender.com`, os QR Codes e a recuperação usam automaticamente a URL pública fornecida pelo Render. Com domínio próprio, configure no serviço web `PUBLIC_ORIGIN=https://seu-dominio` e `AUTH_REDIRECT_URL=https://seu-dominio/?fluxo=recuperar-senha`. A URL nunca vem do cabeçalho Host do navegador.
-4. No Supabase Auth, configure **Site URL** com esse domínio e adicione a URL de recuperação às **Redirect URLs**. Mantenha cadastros por e-mail permitidos, confirmação conforme a política institucional e configure SMTP para os e-mails de produção. Confirme as migrations 001–006 e o perfil do primeiro Super Admin.
-5. Após o deploy, execute `npm run deploy:check -- https://seu-dominio`. Faça a homologação de login, solicitação/aprovação de conta, recuperação, pesquisa, Ouvidoria e CSV. Configure o aviso/coleta e publique a TV pelo worker. Só então baixe e imprima os QR Codes definitivos.
+### 2. Configurar o .env
 
-O deploy automático está desativado: publique novas versões manualmente e atualize **web e worker**. O build verifica código/contrato e testes antes de iniciar. `/api/health` verifica o processo; `/api/ready` verifica a configuração e leitura pública do Supabase, sem comprovar todas as permissões operacionais. Comece com uma instância web; os limites HTTP são locais à instância, enquanto a cota de coleta está no PostgreSQL.
+Copie `.env.example` para `.env`, caso ainda não exista. Preencha:
 
-Fontes da configuração: [serviços web](https://render.com/docs/web-services), [variáveis automáticas](https://render.com/docs/environment-variables), [Blueprint](https://render.com/docs/blueprint-spec) e [workers](https://render.com/docs/background-workers).
+| Variável | Valor |
+|---|---|
+| `SUPABASE_URL` | URL da API do seu projeto Supabase |
+| `SUPABASE_PUBLISHABLE_KEY` | Chave pública do projeto (`sb_publishable_...`) |
+| `SUPABASE_SECRET_KEY` | Chave operacional (`sb_secret_...`), exclusiva do servidor |
+| `ORIGIN_HMAC_SECRET` | Segredo aleatório gerado pelo comando abaixo |
 
-## Manual de uso
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
 
-- **Paciente:** abra o link ou QR Code, escolha o setor e a pesquisa rápida ou completa. Responda à nota geral; as outras etapas são opcionais. Se desejar, deixe uma manifestação e telefone para retorno, com consentimento. Confira o agradecimento ao finalizar.
-- **Gestão:** entre em **Acesso da equipe** com uma conta autorizada. Em **Visão da gestão**, filtre período, setor, turno e equipe; selecione a escala dos indicadores. **Exportar Excel** baixa um CSV com os filtros aplicados. As opções disponíveis dependem do perfil. Saia da conta ao terminar.
-- **Ouvidoria:** abra uma manifestação, consulte os detalhes permitidos e registre o atendimento e a situação. Em caso de conflito, recarregue o registro antes de salvar novamente.
-- **Conta da equipe:** em **Acesso da equipe → Criar conta da equipe**, informe nome, e-mail e senha. Confirme o e-mail quando solicitado e aguarde a aprovação; a solicitação não libera acesso à gestão.
-- **Cadastro:** administradores publicam perguntas e organizam equipes e escalas. Em **Cadastro → Gestores**, somente o superadministrador analisa solicitações, aprova com uma função ou rejeita com motivo. As funções para contas novas são Visualizador, Gestão, Ouvidoria e Administrador de Setor (exige setor). O superadministrador também gerencia setores, permissões, privacidade, coleta e auditoria.
-- **QR Codes:** copie o link, baixe a imagem ou imprima os códigos de celular/tablet. Os códigos são gerados no próprio servidor. Configure o endereço definitivo em `PUBLIC_ORIGIN` antes de imprimir.
-- **TV Wall:** abra **TV Wall** para exibir os indicadores agregados. A tela consulta o último snapshot publicado a cada minuto.
+Copie o resultado para `ORIGIN_HMAC_SECRET` e mantenha o valor entre reinícios. Para uso local, preserve os demais valores do modelo, incluindo:
 
-O aviso de privacidade aparece antes da pesquisa. A escala da pergunta geral e das etapas vem da versão publicada; o envio ocorre uma única vez ao concluir. Recuperação de senha exige `AUTH_REDIRECT_URL` autorizado também no Supabase Auth.
+```dotenv
+NODE_ENV=development
+PUBLIC_ORIGIN=http://127.0.0.1:5173
+AUTH_REDIRECT_URL=http://127.0.0.1:5173/?fluxo=recuperar-senha
+ALLOW_SIGNUP=true
+HOST=127.0.0.1
+PORT=5173
+```
 
-## Registro do processo e justificativas
+Não versione o `.env`. Em produção, use as variáveis do provedor conforme [.env.production.example](.env.production.example).
 
-1. **Análise:** foram revisados o enunciado, o projeto atual e as imagens do protótipo no Figma para identificar requisitos e pendências.
-2. **Pesquisa simples:** uma pergunta obrigatória no início e etapas opcionais reduzem o esforço e permitem participar mesmo com pouco tempo. Celular e tablet oferecem alternativas de acesso.
-3. **Privacidade:** anonimato como opção padrão e telefone opcional com consentimento permitem avaliar sem exigir identificação.
-4. **Banco reconstruído:** scripts sobrepostos e falhas de integração e autorização motivaram a organização em migrations, com dados no schema `hospital` e permissões verificadas no banco.
-5. **Escalas configuráveis:** o banco v2 permite escolher rostinhos 1–5 ou nota 1–10 por pergunta. Versões preservam respostas antigas e indicadores separados evitam misturar escalas diferentes.
-6. **Equipes e indicadores:** a associação à escala é indicativa, sem atribuição de culpa individual. A divulgação pública usa dados agregados.
-7. **Backend v2:** a API passou a validar entradas, sessões e perfis, enviar a pesquisa de forma atômica, atender a Ouvidoria e exportar com os mesmos filtros do painel. SSE atualiza indicadores, e um worker separado cuida da TV e do expurgo.
-8. **Frontend integrado:** as páginas do Figma orientaram cores, navegação e composição, adaptadas às funções reais. Módulos separados organizam pesquisa, gestão e administração. Indicadores mantêm as escalas separadas; não são apresentados como NPS nem usam números demonstrativos em produção. A sessão fica na aba, o telefone respeita o perfil e os QR Codes dispensam serviços externos.
-9. **Aprovação e hierarquia:** novas contas geram solicitações no banco, sem perfil ativo. Somente o Super Admin decide, com auditoria e proteção contra decisões simultâneas. A aprovação oferece funções abaixo de Super Admin, começando por Visualizador; o solicitante não escolhe nem recebe privilégios automaticamente. Metadados do Auth nunca definem autorização.
-10. **Hospedagem:** Render mantém HTTP/SSE e manutenção em processos separados. Configuração de produção vem do provedor, com HTTPS, origem canônica e suporte ao proxy controlado; o worker recebe somente as credenciais necessárias. QR Codes acompanham a URL pública sem serviços de terceiros. Falhas da TV não interrompem o expurgo de contatos.
-11. **Validação:** testes da API, banco e navegador verificam fluxos, permissões, aprovação/rejeição, produção, envio com repetição segura, conflitos de atendimento, contraste de hover e responsividade. Auth/gateway são simulados; homologação remota, acessibilidade com leitor de tela e carga de produção continuam pendentes.
+### 3. Instalar o banco e criar o primeiro administrador
 
-Ferramentas utilizadas: HTML, CSS, JavaScript, Node.js, Supabase/PostgreSQL, Git, Edge e Figma como referência visual.
+Em um **projeto Supabase limpo**, gere o instalador:
 
-## Instalar ou atualizar o banco no Supabase
+```powershell
+npm.cmd run db:bundle
+```
 
-**Se o banco v2 já está instalado:** execute [202611060006_aprovacao_contas.sql](supabase/migrations/202611060006_aprovacao_contas.sql) no SQL Editor para habilitar a fila de contas. Se ainda não aplicou a [migration 005](supabase/migrations/202611060005_leitura_administrativa.sql), aplique-a antes. Execute cada migration somente uma vez; não reinstale o bundle. A atualização preserva dados e inclui na fila contas já existentes sem perfil.
+No SQL Editor do Supabase:
 
-Mantenha `ALLOW_SIGNUP=true` no `.env` e permita novos cadastros por e-mail no Supabase Auth. Confirmar e-mail não equivale a aprovar o acesso: são verificações independentes. `ALLOW_SIGNUP=false` desabilita somente o formulário de solicitação; não altera as permissões do banco.
+1. Execute o conteúdo de `output/database/instalar.sql`.
+2. Execute [verificar_instalacao.sql](supabase/operacoes/verificar_instalacao.sql); os resultados devem ser `true`.
+3. Crie e confirme a primeira conta em **Authentication → Users**. Copie seu UUID, preencha UUID e nome em [primeiro_admin.sql](supabase/operacoes/primeiro_admin.sql) e execute o script.
 
-**Para instalação nova:**
+Se o banco já estiver instalado, aplique somente as migrations pendentes, na ordem; não reinstale o bundle. Consulte o [tutorial do banco](docs/modelo-de-dados-e-requisitos.md#instalar-ou-atualizar).
 
-1. Em um projeto limpo, execute `npm run db:bundle` e rode o conteúdo gerado em `output/database/instalar.sql` no SQL Editor.
-2. Execute [verificar_instalacao.sql](supabase/operacoes/verificar_instalacao.sql); todos os resultados devem ser `true`.
-3. Crie a conta do administrador em Authentication, ajuste UUID e nome em [primeiro_admin.sql](supabase/operacoes/primeiro_admin.sql) e execute esse script.
+Em **Authentication → URL Configuration**, configure a Site URL local e autorize a URL de recuperação indicadas acima. Permita cadastros por e-mail para receber solicitações de conta.
 
-Preserve os schemas nativos do Supabase e mantenha `hospital` fora dos schemas expostos na API. Não aplique o instalador e as migrations separadamente no mesmo banco. A coleta v2 começa desabilitada: configure o aviso e habilite-a em **Cadastro → Configuração** antes do uso.
+### 4. Iniciar a aplicação
 
-## Testes e repositório
+```powershell
+npm.cmd run dev
+```
 
-- `npm test`: 34 cenários da API v2, configuração de produção, proxy, worker e smoke test; requer Node.js 22 ou 24 LTS.
-- `npm run test:frontend`: 65 verificações em Edge real com API v2 e Supabase simulado. Requer Edge instalado; `EDGE_BIN` pode indicar o executável. A opção `-- --screenshots` salva imagens de teste em `output/`, sem incluí-las no manual.
-- `npm run test:db`: testes do banco e integração HTTP com PostgreSQL real; requer PostgreSQL 15+ (`PG_BIN` informa a pasta dos executáveis).
-- `npm run api:spec`: atualiza o OpenAPI; disponível também em `/api/openapi.json`.
-- `npm run jobs`: inicia o worker de publicação da TV e expurgo diário em outro processo.
-- `npm run check`: verifica sintaxe, imports públicos e consistência do OpenAPI, sem acessar o banco.
-- `npm run deploy:check -- https://seu-dominio`: verifica a hospedagem por leitura, sem credenciais nem submissões de pesquisa.
+Abra [http://127.0.0.1:5173](http://127.0.0.1:5173). Em outro terminal, mantenha a manutenção automática:
 
-Todos os testes ficam em `tests/`; não execute os SQLs dessa pasta no Supabase. No PowerShell, use `npm.cmd` se necessário.
+```powershell
+npm.cmd run jobs
+```
 
-Configuração, endpoints e operação estão na [arquitetura da API](docs/arquitetura-backend.md).
+Entre em **Acesso da equipe** com o Super Admin. Em **Cadastro → Configurações**, preencha o aviso de privacidade, sua versão e habilite a coleta. Sem isso, a pesquisa fica indisponível. Reinicie os processos após alterar o `.env`.
 
-O `.gitignore` exclui segredos, backups, dependências e arquivos gerados em `output/`. Migrations e testes permanecem versionados. O projeto ainda precisa de homologação antes do uso com dados reais.
+## Uso básico
+
+- **Paciente:** escolha o setor e a pesquisa rápida ou completa, leia o aviso e responda à nota geral. Na completa, etapas, manifestação e contato são opcionais.
+- **Equipe:** solicite uma conta em **Criar conta da equipe** e aguarde a aprovação do Super Admin em **Cadastro → Gestores**.
+- **Gestão:** aplique os filtros em **Visão da gestão** e consulte os indicadores. **Exportar Excel** baixa CSV com os filtros aplicados, quando o perfil permitir.
+- **Ouvidoria:** consulte a manifestação e registre o atendimento. Telefone e histórico interno são restritos à Ouvidoria e ao Super Admin.
+- **TV Wall:** apresenta resultados agregados publicados pelo worker. A primeira publicação exige ao menos cinco respostas na mesma escala; consulte as [regras da TV](docs/administracao-tablet.md#tv-wall).
+
+Tutoriais por função estão no [índice da documentação](docs/README.md). O [registro do processo e das justificativas](docs/ux-personas-e-fluxo.md) explica as decisões do projeto.
+
+## Tecnologias
+
+| Tecnologia | Uso |
+|---|---|
+| HTML, CSS e JavaScript com módulos ES | Interface responsiva |
+| Node.js e módulos HTTP nativos | Servidor, API e manutenção |
+| Supabase Auth e PostgreSQL | Autenticação, persistência, funções SQL e RLS |
+| `qrcode` | Geração local de QR Codes em SVG |
+| SSE e CSV | Atualização do painel e exportação |
+| Figma | Referência visual das telas |
+| Git e npm | Versionamento e dependências |
+| Edge e ferramentas do PostgreSQL | Testes de navegador e integração |
+| Render | Configuração de hospedagem web e worker |
+
+## Publicação e verificação
+
+O [tutorial de hospedagem](docs/seguranca-e-nuvem.md) explica o [render.yaml](render.yaml), as variáveis e o domínio dos QR Codes. O modelo usa dois serviços pagos e a branch `developer`; revise os custos antes de criar os serviços. Não há configuração de deploy para Vercel nesta versão.
+
+| Comando | Finalidade |
+|---|---|
+| `npm.cmd run check` | Sintaxe, imports e consistência do OpenAPI |
+| `npm.cmd test` | API e configuração de produção |
+| `npm.cmd run test:frontend` | Fluxos no Edge; requer navegador instalado (`EDGE_BIN` opcional) |
+| `npm.cmd run test:db` | Banco descartável; requer PostgreSQL 15+ (`PG_BIN` opcional) |
+| `npm.cmd run api:spec` | Atualizar o contrato OpenAPI |
+| `npm.cmd run deploy:check -- https://seu-dominio` | Verificar a hospedagem sem gravar dados |
+
+Os testes SQL não devem ser executados no Supabase remoto. Código, migrations e testes são versionados; segredos, dependências e artefatos em `output/` ficam fora do Git. Os testes locais passaram; domínio, Auth/SMTP, proxy, carga, acessibilidade e rotinas operacionais ainda precisam de homologação no ambiente real. Consulte o [relatório de testes](docs/plano-e-relatorio-de-testes.md).

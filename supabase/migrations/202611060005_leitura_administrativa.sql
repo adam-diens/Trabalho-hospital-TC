@@ -1,4 +1,4 @@
--- Evolução aditiva para a API v2; executar também no banco já instalado.
+-- Consultas administrativas de configuração, setores e versões de questionários.
 begin;
 create function public.ep_configuracao() returns jsonb language plpgsql security definer set search_path='' as $$
 begin

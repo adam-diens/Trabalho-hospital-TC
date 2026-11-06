@@ -18,8 +18,10 @@ Hipótese didática por cliente/mês: receita R$ 1.500; cloud/monitoramento R$ 1
 
 ## Escala e métricas
 
-Templates de implantação, isolamento por hospital (`tenant_id`/RLS), configuração por cliente, treinamento remoto e integrações padronizadas. Acompanhar taxa de resposta por atendimentos elegíveis, completude, tempo até manifestação, tempo de resposta da Ouvidoria, melhoria por setor, retenção de clientes, CAC, margem e churn. Não otimizar nota média isoladamente nem incentivar coerção de pacientes.
+Como evolução futura, considerar templates de implantação, isolamento por hospital (`tenant_id`/RLS), configuração por cliente, treinamento remoto e integrações padronizadas. Acompanhar taxa de resposta por atendimentos elegíveis, completude, tempo até manifestação, tempo de resposta da Ouvidoria, melhoria por setor, retenção de clientes, CAC, margem e churn. Não otimizar nota média isoladamente nem incentivar coerção de pacientes.
 
 ## Riscos e mitigação
 
 Baixa adesão → pesquisa curta, vários canais e convite neutro. Viés de quem responde → monitorar cobertura por setor/turno e não inferir população sem cautela. Uso punitivo → equipe agregada, revisão humana e política de não retaliação. Privacidade → minimização, acesso restrito e retenção formal. Integração/adoção → piloto, treinamento e exportação interoperável.
+
+O sistema atual atende uma instituição por instalação. Multiempresa, cobrança e integrações comerciais não estão implementadas; os itens acima são hipóteses para validação.

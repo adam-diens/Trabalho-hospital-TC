@@ -1,31 +1,36 @@
-# Pesquisa em tablet e administração de setores
+# Configurar tablet, QR Codes e TV
 
-## Pesquisa do paciente
+## QR Codes e tablet
 
-A pesquisa rápida tem apenas a avaliação geral com cinco rostos, do melhor para o pior. A pesquisa completa acrescenta cinco perguntas opcionais do setor, com números de 1 a 10, apresentadas uma por vez. É possível pular uma pergunta ou concluir antecipadamente.
+1. Entre com uma conta autorizada e abra **QR Codes**.
+2. Selecione o código de celular ou tablet do setor. Copie o link, baixe o SVG ou imprima.
+3. Confira o endereço antes de distribuir: ele usa a URL pública da hospedagem ou `PUBLIC_ORIGIN`.
+4. No tablet, abra o link com `?setor=pa&modo=tablet`, substituindo `pa` pelo identificador do setor.
 
-Para abrir a pesquisa em modo quiosque, use o código do setor com `modo=tablet`, por exemplo:
+Tablet inicia na pesquisa rápida e celular na completa; o participante pode trocar. Ambas usam as perguntas e escalas publicadas. Após o agradecimento, o tablet reinicia em oito segundos, com opção de pausar o reinício. Não mantenha conta da equipe aberta no dispositivo público.
 
-```text
-?setor=pa&modo=tablet
+## TV Wall
+
+Abra **TV Wall** no navegador da tela. A página consulta o resultado publicado a cada minuto. Para publicar automaticamente, mantenha o worker em execução:
+
+```powershell
+npm.cmd run jobs
 ```
 
-Os códigos são pa (Pronto Atendimento), int (Internação), enfermagem, lab (Laboratório), rx (Raio-X) e refeitorio. A área QR Codes, restrita à gestão, oferece dois códigos por setor: `modo=tablet` para iniciar na pesquisa rápida e `modo=celular` para iniciar na completa. Ambos permitem trocar de jornada. O tablet reinicia a pesquisa oito segundos após o agradecimento. A navegação permanece disponível no menu.
+O worker tenta publicar ao iniciar e a cada 15 minutos. A publicação considera os últimos 30 dias, somando os setores, e exige ao menos cinco respostas na mesma escala da pergunta geral. Rostinhos e notas numéricas são grupos separados. Depois da primeira publicação, são necessárias cinco novas respostas na escala e intervalo mínimo de 15 minutos. Publicações com mais de 24 horas deixam de aparecer.
 
-## Perfis e permissões
+Para tentar uma publicação manual:
 
-- **Administrador de setor (`admin_setor`)**: edita a pergunta do próprio setor e consulta os dados de acordo com o perfil.
-- **Superadministrador (`super_admin`)**: edita a pergunta de qualquer setor e concede perfis de administrador ou superadministrador.
-- A pessoa precisa ter uma conta existente no Supabase Auth. O superadministrador concede o perfil usando o e-mail e seleciona o setor.
-- O banco valida usuário, perfil e setor. A interface não pode conceder permissões por conta própria.
+```powershell
+npm.cmd run jobs:once -- tv
+```
 
-## Banco de dados
+`{"tv":0}` significa que nenhum grupo novo foi publicado; `{"tv":1}` indica uma escala publicada. A TV não exibe comentários, contatos ou avaliações individuais. Na hospedagem, o serviço de worker substitui o terminal local.
 
-A regra de uma pergunta ativa por setor e as RPCs protegidas `salvar_pergunta_setor` e `definir_perfil` estão aplicadas no Supabase conectado. O arquivo da migration correspondente não está nesta cópia do repositório; compare o esquema remoto antes de reaplicar scripts.
+## Quando não aparece nada
 
-As RPCs só podem ser executadas por usuários autenticados. `salvar_pergunta_setor` limita o administrador de setor ao setor associado ao seu perfil; `definir_perfil` permite concessões apenas ao superadministrador.
+- **Pesquisa indisponível:** confira aviso e habilitação da coleta em **Cadastro → Configurações** e o questionário publicado do setor.
+- **TV vazia:** confira quantidade por escala, janela de publicação e execução do worker.
+- **QR abre endereço errado:** ajuste a origem no serviço web e gere os códigos novamente; códigos já impressos não mudam.
 
-
-## Limites antispam
-
-A API aceita ate 15 respostas por dispositivo em QR e 100 em tablet a cada 10 minutos, com limite global de 1000 por setor no periodo.
+Consulte [hospedagem](seguranca-e-nuvem.md) e [perguntas por setor](perguntas-por-setor.md).

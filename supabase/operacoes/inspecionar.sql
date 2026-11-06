@@ -1,4 +1,4 @@
--- Somente leitura. Executar no SQL Editor antes de substituir o projeto remoto.
+-- Inspeção somente leitura de schemas, funções e permissões.
 -- Não consulta respostas, contatos, senhas ou dados de pacientes.
 select nspname schema from pg_namespace
 where nspname not like 'pg_%' and nspname<>'information_schema' order by 1;

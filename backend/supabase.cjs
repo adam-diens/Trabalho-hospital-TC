@@ -33,7 +33,7 @@ function createSupabase(config, fetchImpl = fetch) {
     if (response.ok) return data;
     if (response.status === 429) throw new ApiError(429, 'RATE_LIMITED', 'Muitas tentativas. Aguarde para tentar novamente.', { 'Retry-After': '60' });
     const code = data?.code;
-    // PostgREST também devolve HTTP 500 para SQLSTATE 55000 (estado da coleta).
+    // Interpreta SQLSTATE antes do HTTP: estados de negócio podem chegar como 500.
     if (code === '55000') throw new ApiError(503, 'COLLECTION_DISABLED', 'A pesquisa está temporariamente indisponível.');
     // Cadastro repetido recebe a mesma confirmação genérica de um cadastro novo.
     if (authAction === 'signup' && ['user_already_exists', 'email_exists'].includes(code)) return null;

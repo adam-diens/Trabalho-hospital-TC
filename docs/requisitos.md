@@ -1,3 +1,4 @@
+# Requisitos e critérios de aceite
 
 ## Objetivo e contexto
 
@@ -30,7 +31,7 @@ Paciente/acompanhante (sem conta); Ouvidoria (manifestações e contato); Gestã
 - RNF02 Acessibilidade: contraste, navegação sem depender apenas de cor, rótulos acessíveis e responsividade; validar com leitor de tela e WCAG antes da implantação.
 - RNF03 Segurança: HTTPS, autenticação de gestores, RBAC/RLS, validação de entrada, proteção de segredos e acesso mínimo.
 - RNF04 Privacidade: minimizar dados, telefone opcional e acesso restrito, retenção definida com o controlador e transparência ao paciente.
-- RNF05 Integridade: nota geral 1–5 ou 1–10 conforme configuração, setor válido, timestamps confiáveis e associação de escala com nível de confiança.
+- RNF05 Integridade: nota geral 1–5 ou 1–10 conforme configuração, setor válido, timestamps confiáveis e associação indicativa à escala.
 - RNF06 Disponibilidade/escala: API desacoplada, banco gerenciado e agregações indexadas; metas/SLO a definir com a Fundação.
 - RNF07 Portabilidade: funcionar em navegadores móveis/tablets atuais; frontend e backend v2 integrados; testes locais em Edge.
 

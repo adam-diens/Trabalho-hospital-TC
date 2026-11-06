@@ -1,6 +1,10 @@
 # Modelo de dados e requisitos — v2
 
-A instalação está no [README principal](../README.md#instalar-o-banco-no-supabase). O banco v2 ainda não foi aplicado ao Supabase nem integrado ao site.
+## Instalar ou atualizar
+
+Para instalação limpa, siga o [README](../README.md#3-instalar-o-banco-e-criar-o-primeiro-administrador). O instalador é gerado a partir das migrations; não execute o bundle e os arquivos individuais no mesmo banco.
+
+Em banco existente, confira quais migrations já foram aplicadas e execute apenas as pendentes, em ordem. A 005 acrescenta leituras administrativas e a 006 acrescenta solicitações/aprovação de contas. Elas estão em [supabase/migrations](../supabase/migrations). Execute cada arquivo uma vez e confira [verificar_instalacao.sql](../supabase/operacoes/verificar_instalacao.sql). Não execute os testes SQL no banco remoto nem reinstale o banco para atualizar funções.
 
 Todos os dados do domínio ficam em **`hospital`**. `public` contém apenas as RPCs `ep_*`; nenhuma tabela do domínio. `auth`, `storage`, `realtime`, `extensions` e outros schemas gerenciados pelo Supabase são infraestrutura, não fragmentação do modelo. Não os exclua. Não exponha `hospital` na Data API.
 
@@ -9,6 +13,7 @@ Todos os dados do domínio ficam em **`hospital`**. `public` contém apenas as R
 | Tabela | Responsabilidade |
 |---|---|
 | `setores` | Seis setores iniciais; desativação sem apagar histórico |
+| `solicitacoes_acesso` | Cadastro pendente, decisão do Super Admin e motivo de rejeição |
 | `perfis` | Conta Auth, um dos cinco papéis, setor obrigatório apenas para admin de setor |
 | `questionarios` | Versões por setor; uma publicação vigente |
 | `perguntas` | Uma geral obrigatória e até 20 etapas opcionais; escala individual |
