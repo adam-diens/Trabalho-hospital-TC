@@ -17,9 +17,13 @@
     "jobs:once": "node backend/worker.cjs",
     "jobs": "node backend/worker.cjs --watch",
     "check": "node scripts/check.cjs",
+    "format": "prettier --write app.js \"assets/js/**/*.js\" \"backend/**/*.{cjs,js}\" \"scripts/**/*.cjs\" \"tests/**/*.cjs\" styles.css tablet.css index.html docs/api.html render.yaml package.json .prettierrc.json",
     "deploy:check": "node scripts/check-deploy.cjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
   }
 }

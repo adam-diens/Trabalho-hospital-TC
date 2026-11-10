@@ -17,13 +17,13 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "24"
+        value: '24'
       - key: HOST
         value: 0.0.0.0
       - key: ALLOW_SIGNUP
-        value: "true"
+        value: 'true'
       - key: TRUST_PROXY_HOPS
-        value: "1"
+        value: '1'
       - key: ORIGIN_HMAC_SECRET
         generateValue: true
       - key: SUPABASE_URL
@@ -46,7 +46,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "24"
+        value: '24'
       - key: SUPABASE_URL
         fromService:
           type: web

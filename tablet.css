@@ -1,2 +1,18 @@
 /* Tablet compartilhado: fluxo centralizado e controles confortáveis ao toque. */
-@media(min-width:600px){body.tablet-kiosk .patient-main{padding:28px;align-items:center}body.tablet-kiosk .patient-card{min-height:710px;max-width:620px;padding:36px 42px}body.tablet-kiosk .rating{min-height:57px}body.tablet-kiosk .patient-actions .button{min-height:57px}}
+@media (min-width: 600px) {
+  body.tablet-kiosk .patient-main {
+    padding: 28px;
+    align-items: center;
+  }
+  body.tablet-kiosk .patient-card {
+    min-height: 710px;
+    max-width: 620px;
+    padding: 36px 42px;
+  }
+  body.tablet-kiosk .rating {
+    min-height: 57px;
+  }
+  body.tablet-kiosk .patient-actions .button {
+    min-height: 57px;
+  }
+}
