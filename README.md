@@ -114,3 +114,5 @@ O [tutorial de hospedagem](docs/seguranca-e-nuvem.md) explica o [render.yaml](re
 | `npm.cmd run deploy:check -- https://seu-dominio` | Verificar a hospedagem sem gravar dados |
 
 Os testes SQL não devem ser executados no Supabase remoto. Código, migrations e testes são versionados; segredos, dependências e artefatos em `output/` ficam fora do Git. Os testes locais passaram; domínio, Auth/SMTP, proxy, carga, acessibilidade e rotinas operacionais ainda precisam de homologação no ambiente real. Consulte o [relatório de testes](docs/plano-e-relatorio-de-testes.md).
+
+Link do deploy: https://trabalho-hospital-tc.onrender.com/
