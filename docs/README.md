@@ -2,6 +2,10 @@
 
 Comece pelo [README principal](../README.md) para instalar e executar a aplicação.
 
+## Documento do projeto
+
+- [Sistema de Gestão da Experiência do Paciente Hospital FHDOD (PDF)](sistema-gestao-experiencia-paciente-fhdod.pdf).
+
 ## Tutoriais
 
 | Preciso… | Guia |

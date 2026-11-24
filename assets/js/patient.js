@@ -1,11 +1,11 @@
 import { request } from './api.js';
-import { $, $$, h, brand, icon, rating, feedback, bindForm, focusHeading, notice } from './ui.js';
+import { $, $$, h, publicHeader, icon, rating, feedback, bindForm, focusHeading, notice } from './ui.js';
 
 export async function mountPatient(root, ctx) {
   const params = new URLSearchParams(location.search);
   const tablet = params.get('modo') === 'tablet';
   document.body.classList.toggle('tablet-kiosk', tablet);
-  root.innerHTML = `<header class="public-header">${brand('')}<nav class="public-nav" aria-label="Outras páginas"><a class="public-nav-context" href="#pesquisa">Experiência do paciente</a><a href="#tv">TV Wall</a><a href="#login">Acesso da equipe</a></nav></header><main id="main-content" class="patient-main" tabindex="-1"><section class="patient-card" id="survey-card"><p class="loading">Carregando a pesquisa…</p></section></main>`;
+  root.innerHTML = `${publicHeader({ context: 'Experi\u00eancia do paciente' })}<main id="main-content" class="patient-main" tabindex="-1"><section class="patient-card" id="survey-card"><p class="loading">Carregando a pesquisa…</p></section></main>`;
   const card = $('#survey-card', root);
   const model = {
     step: 'welcome',
@@ -225,7 +225,7 @@ export async function mountPatient(root, ctx) {
   }
   function openPrivacy() {
     const dialog = $('#privacy-dialog');
-    dialog.innerHTML = `<div class="row spread"><h2 id="privacy-title">Sua privacidade</h2><button class="button subtle" id="privacy-close" aria-label="Fechar aviso">${icon('close')}</button></div><p class="muted">Leia o aviso do hospital antes de participar.</p><div class="privacy-text">${h(model.form.privacidade_texto)}</div><div class="stack"><button class="button full" id="privacy-continue">Li o aviso e quero participar</button><button class="button secondary full" id="privacy-cancel">Agora não</button></div>`;
+    dialog.innerHTML = `<div class="row spread"><h2 id="privacy-title">Sua privacidade</h2><button class="button subtle" id="privacy-close" aria-label="Fechar aviso">${icon('close')}</button></div><p class="muted">Leia o aviso do hospital antes de participar.</p><div class="notice privacy-summary">Sua participação é voluntária. As respostas são analisadas de forma agregada e ajudam a melhorar o cuidado.</div><div class="privacy-text">${h(model.form.privacidade_texto)}</div><div class="stack"><button class="button full" id="privacy-continue">Li o aviso e quero participar</button><button class="button secondary full" id="privacy-cancel">Agora não</button></div>`;
     dialog.showModal();
     $('#privacy-close').onclick = $('#privacy-cancel').onclick = () => dialog.close();
     $('#privacy-continue').onclick = () => {

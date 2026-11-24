@@ -68,7 +68,7 @@ Em **Authentication → URL Configuration**, configure a Site URL local e autori
 npm.cmd run dev
 ```
 
-Abra [http://127.0.0.1:5173](http://127.0.0.1:5173). Em outro terminal, mantenha a manutenção automática:
+Abra [http://127.0.0.1:5173](http://127.0.0.1:5173). Sem rota definida, a aplicação abre a pesquisa; o **TV Wall** pode ser acessado pelo menu principal. Em outro terminal, mantenha a manutenção automática:
 
 ```powershell
 npm.cmd run jobs
@@ -83,6 +83,7 @@ Entre em **Acesso da equipe** com o Super Admin. Em **Cadastro → Configuraçõ
 - **Gestão:** aplique os filtros em **Visão da gestão** e consulte os indicadores. **Exportar Excel** baixa CSV com os filtros aplicados, quando o perfil permitir.
 - **Ouvidoria:** consulte a manifestação e registre o atendimento. Telefone e histórico interno são restritos à Ouvidoria e ao Super Admin.
 - **TV Wall:** apresenta resultados agregados publicados pelo worker. A primeira publicação exige ao menos cinco respostas na mesma escala; consulte as [regras da TV](docs/administracao-tablet.md#tv-wall).
+- **Contato:** envie mensagens pelo formulário público. A migration `202611240001_contato.sql` cria a tabela sem acesso direto pela API e limita envios por origem.
 
 Tutoriais por função estão no [índice da documentação](docs/README.md). O [registro do processo e das justificativas](docs/ux-personas-e-fluxo.md) explica as decisões do projeto.
 
@@ -102,7 +103,7 @@ Tutoriais por função estão no [índice da documentação](docs/README.md). O 
 
 ## Publicação e verificação
 
-O [tutorial de hospedagem](docs/seguranca-e-nuvem.md) explica o [render.yaml](render.yaml), as variáveis e o domínio dos QR Codes. O modelo usa dois serviços pagos e a branch `developer`; revise os custos antes de criar os serviços. Não há configuração de deploy para Vercel nesta versão.
+O [tutorial de hospedagem](docs/seguranca-e-nuvem.md) explica o [render.yaml](render.yaml), as variáveis e o domínio dos QR Codes. O modelo usa dois serviços pagos e publica a branch `main`; revise os custos antes de criar os serviços. Não há configuração de deploy para Vercel nesta versão.
 
 | Comando | Finalidade |
 |---|---|
@@ -115,4 +116,17 @@ O [tutorial de hospedagem](docs/seguranca-e-nuvem.md) explica o [render.yaml](re
 
 Os testes SQL não devem ser executados no Supabase remoto. Código, migrations e testes são versionados; segredos, dependências e artefatos em `output/` ficam fora do Git. Os testes locais passaram; domínio, Auth/SMTP, proxy, carga, acessibilidade e rotinas operacionais ainda precisam de homologação no ambiente real. Consulte o [relatório de testes](docs/plano-e-relatorio-de-testes.md).
 
-Link do deploy: https://trabalho-hospital-tc.onrender.com/
+## Links da entrega
+
+| Recurso | Link |
+|---|---|
+| Aplicação publicada | [FHDOD no Render](https://trabalho-hospital-tc.onrender.com/) |
+| Documentação online da API (OpenAPI) | [Abrir especificação JSON](https://trabalho-hospital-tc.onrender.com/api/openapi.json) |
+| Código-fonte | [Repositório no GitHub](https://github.com/adam-diens/Trabalho-hospital-TC) |
+| Documentação do projeto | [Pasta `docs/` no GitHub](https://github.com/adam-diens/Trabalho-hospital-TC/tree/main/docs) |
+| Documento do projeto | [Sistema de Gestão da Experiência do Paciente](docs/sistema-gestao-experiencia-paciente-fhdod.pdf) |
+| Fluxo no Figma | [Abrir fluxo](https://www.figma.com/design/xnlPTPfmS2bqv6VDbI4rAo/Trabalho-Hospital?node-id=0-1&t=WUW9f47NYsELTpJv-1) |
+| Protótipo do paciente | [Abrir protótipo](https://www.figma.com/design/xnlPTPfmS2bqv6VDbI4rAo/Trabalho-Hospital?node-id=5-5701&t=WUW9f47NYsELTpJv-1) |
+| Protótipo do gestor | [Abrir protótipo](https://www.figma.com/design/xnlPTPfmS2bqv6VDbI4rAo/Trabalho-Hospital?node-id=16-2&t=WUW9f47NYsELTpJv-1) |
+
+O link do quadro Kanban não consta no PDF e será incluído quando o endereço for informado.

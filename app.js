@@ -11,16 +11,9 @@ import {
   toast,
   focusHeading,
 } from './assets/js/ui.js';
-import { mountPatient } from './assets/js/patient.js';
-import {
-  mountDashboard,
-  mountManifestations,
-  mountQrs,
-  mountWall,
-} from './assets/js/management.js';
-import { mountAdmin } from './assets/js/admin.js';
 
 const root = $('#app');
+$('[data-current-year]').textContent = String(new Date().getFullYear());
 $('.skip-link').addEventListener('click', (event) => {
   event.preventDefault();
   $('#main-content')?.focus();
@@ -30,8 +23,10 @@ let generation = 0,
   recoveryToken = null,
   authMessage = '';
 const store = { profile: null, sectors: [] };
+const LAST_LOGIN_EMAIL = 'fhdod.last-login-email';
+let lastLoginEmail = '';
 try {
-  localStorage.removeItem('fhdod.session');
+  lastLoginEmail = sessionStorage.getItem(LAST_LOGIN_EMAIL) || '';
 } catch {}
 
 function context() {
@@ -108,6 +103,34 @@ window.addEventListener('pageshow', (event) => {
 });
 root.addEventListener('click', (event) => {
   if (event.target.closest('[data-logout]')) logout();
+  const publicToggle = event.target.closest('[data-public-menu]');
+  if (publicToggle) {
+    const header = publicToggle.closest('.public-header, .wall-header');
+    const open = header.classList.toggle('menu-open');
+    publicToggle.setAttribute('aria-expanded', String(open));
+    publicToggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  }
+  const managementToggle = event.target.closest('[data-management-menu]');
+  if (managementToggle) {
+    const sidebar = managementToggle.closest('.sidebar');
+    const open = sidebar.classList.toggle('menu-open');
+    managementToggle.setAttribute('aria-expanded', String(open));
+  }
+  if (event.target.closest('.public-nav a, .sidebar nav a')) {
+    root.querySelectorAll('.menu-open').forEach((menu) => menu.classList.remove('menu-open'));
+    root.querySelectorAll('[data-public-menu], [data-management-menu]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'false');
+      if (button.hasAttribute('data-public-menu')) button.setAttribute('aria-label', 'Abrir menu');
+    });
+  }
+});
+root.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  root.querySelectorAll('.menu-open').forEach((menu) => menu.classList.remove('menu-open'));
+  root.querySelectorAll('[data-public-menu], [data-management-menu]').forEach((button) => {
+    button.setAttribute('aria-expanded', 'false');
+    if (button.hasAttribute('data-public-menu')) button.setAttribute('aria-label', 'Abrir menu');
+  });
 });
 
 function authShell() {
@@ -126,9 +149,32 @@ function mountAuth(ctx, mode) {
       : recover
         ? 'Recuperar minha senha'
         : 'Bem-vindo à gestão';
-  box.innerHTML = `<h1>${heading}</h1><p class="muted">${resetting ? 'Escolha uma senha com pelo menos 12 caracteres.' : signup ? 'Preencha seus dados. O Super Admin analisará sua solicitação e definirá sua função antes de liberar o acesso.' : recover ? 'Enviaremos as orientações para o e-mail da conta elegível.' : 'Entre com sua conta institucional.'}</p>${authMessage ? notice(authMessage) : ''}${resetting && !recoveryToken && !session() ? notice('Abra o link de recuperação enviado ao seu e-mail ou entre com sua conta para alterar a senha.', true) : ''}<form id="auth-form"><div class="stack">${signup ? '<label class="field">Nome completo<input name="nome" autocomplete="name" minlength="2" maxlength="120" required></label>' : ''}${!resetting ? '<label class="field">E-mail institucional<input name="email" type="email" autocomplete="username" maxlength="254" placeholder="seu.email@hospital.org" required></label>' : ''}${!recover ? `<label class="field">${resetting ? 'Nova senha' : 'Senha'}<input name="senha" type="password" autocomplete="${signup || resetting ? 'new-password' : 'current-password'}" minlength="${signup || resetting ? 12 : 1}" maxlength="128" required></label>` : ''}${resetting ? '<label class="field">Confirme a senha<input name="confirmacao" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label><label class="field">Código de confirmação (se solicitado)<input name="nonce" autocomplete="one-time-code" maxlength="256"><small>Preencha somente se o serviço de autenticação exigir confirmação adicional.</small></label>' : ''}${!signup && !recover && !resetting ? '<a href="#recuperar" style="text-align:right;font-size:13px">Esqueci minha senha</a>' : ''}<button class="button full" type="submit" ${resetting && !recoveryToken && !session() ? 'disabled data-locked="true"' : ''}>${resetting ? 'Salvar nova senha' : signup ? 'Enviar solicitação de conta' : recover ? 'Enviar orientações' : 'Entrar'}</button><p class="form-feedback" role="alert"></p></div></form>${!signup && !recover && !resetting ? '<a href="#cadastro-conta" class="text-button">Criar conta da equipe</a>' : '<a href="#login" class="text-button">Voltar para entrar</a>'}<div style="margin-top:20px"><a href="#pesquisa" class="text-button">Voltar à pesquisa</a></div>`;
+  box.innerHTML = `<h1>${heading}</h1><p class="muted">${resetting ? 'Escolha uma senha com pelo menos 12 caracteres.' : signup ? 'Preencha seus dados. O Super Admin analisará sua solicitação e definirá sua função antes de liberar o acesso.' : recover ? 'Enviaremos as orientações para o e-mail da conta elegível.' : 'Entre com sua conta institucional.'}</p>${authMessage ? notice(authMessage) : ''}${resetting && !recoveryToken && !session() ? notice('Abra o link de recuperação enviado ao seu e-mail ou entre com sua conta para alterar a senha.', true) : ''}<form id="auth-form"><div class="stack">${signup ? '<label class="field">Nome completo<input name="nome" autocomplete="name" minlength="2" maxlength="120" required></label>' : ''}${!resetting ? `<label class="field">E-mail institucional<input name="email" type="email" autocomplete="username" maxlength="254" placeholder="seu.email@hospital.org" value="${mode === 'login' ? h(lastLoginEmail) : ''}" required></label>` : ''}${!recover ? `<label class="field">${resetting ? 'Nova senha' : 'Senha'}<input name="senha" type="password" autocomplete="${signup || resetting ? 'new-password' : 'current-password'}" minlength="${signup || resetting ? 12 : 1}" maxlength="128" required></label>` : ''}${resetting ? '<label class="field">Confirme a senha<input name="confirmacao" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label><label class="field">Código de confirmação (se solicitado)<input name="nonce" autocomplete="one-time-code" maxlength="256"><small>Preencha somente se o serviço de autenticação exigir confirmação adicional.</small></label>' : ''}${!signup && !recover && !resetting ? '<a href="#recuperar" style="text-align:right;font-size:13px">Esqueci minha senha</a>' : ''}<button class="button full" type="submit" ${resetting && !recoveryToken && !session() ? 'disabled data-locked="true"' : ''}>${resetting ? 'Salvar nova senha' : signup ? 'Enviar solicitação de conta' : recover ? 'Enviar orientações' : 'Entrar'}</button><p class="form-feedback" role="alert"></p></div></form>${!signup && !recover && !resetting ? '<a href="#cadastro-conta" class="text-button">Criar conta da equipe</a>' : '<a href="#login" class="text-button">Voltar para entrar</a>'}<div style="margin-top:20px"><a href="#pesquisa" class="text-button">Voltar à pesquisa</a></div>`;
   authMessage = '';
   const form = $('#auth-form', box);
+  form.querySelectorAll('input[type="password"]').forEach((input) => {
+    input.closest('.field')?.classList.add('password-field');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'password-toggle';
+    button.textContent = 'Mostrar';
+    button.setAttribute('aria-label', 'Mostrar senha');
+    button.setAttribute('aria-pressed', 'false');
+    input.insertAdjacentElement('afterend', button);
+    button.addEventListener('click', () => {
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      button.textContent = visible ? 'Ocultar' : 'Mostrar';
+      button.setAttribute('aria-label', visible ? 'Ocultar senha' : 'Mostrar senha');
+      button.setAttribute('aria-pressed', String(visible));
+    });
+  });
+  const contactLink = document.createElement('a');
+  contactLink.href = '#contato';
+  contactLink.className = 'text-button';
+  contactLink.textContent = 'Contato';
+  contactLink.style.marginTop = '16px';
+  box.append(contactLink);
   bindForm(form, async (values) => {
     if (resetting) {
       if (values.get('senha') !== values.get('confirmacao'))
@@ -171,6 +217,10 @@ function mountAuth(ctx, mode) {
         feedback(form, data.message, false);
       }
     } else {
+      lastLoginEmail = String(values.get('email') || '').trim();
+      try {
+        sessionStorage.setItem(LAST_LOGIN_EMAIL, lastLoginEmail);
+      } catch {}
       const data = await request('/auth/entrar', {
         method: 'POST',
         body: { email: values.get('email'), senha: values.get('senha') },
@@ -197,7 +247,7 @@ function shell(view, profile) {
     ['pesquisa', 'Pesquisa', 'hospital'],
   ];
   const title = nav.find(([id]) => id === view)?.[1] || 'Cadastro';
-  root.innerHTML = `<div class="management-layout"><aside class="sidebar">${brand('Pesquisa de satisfação')}<div><p class="nav-label">Área de gestão</p><nav aria-label="Gestão">${nav.map(([id, text, glyph]) => `<a href="#${id === 'cadastro' ? 'cadastro/perguntas' : id}" class="${view === id ? 'active' : ''}" ${view === id ? 'aria-current="page"' : ''}>${icon(glyph)}${h(text)}</a>`).join('')}</nav></div><div class="sidebar-bottom"><div class="sidebar-note">${icon('shield')}Escutar com cuidado.<br>Proteger cada resposta.</div><button class="button subtle logout-button" data-logout>${icon('logout')} Sair da conta</button></div></aside><div class="workspace"><header class="workspace-header"><span>FHDOD / ${h(title)}</span><div class="header-user"><span class="user-name">${h(profile.nome)}</span><span class="pill">${h(roles[profile.papel] || 'Equipe')}</span><a class="text-button" href="#senha" aria-label="Alterar minha senha">${icon('user')}</a><button class="button subtle" data-logout style="padding:6px;min-height:40px">Sair</button></div></header><main id="main-content" class="workspace-content" tabindex="-1"><p class="loading">Carregando…</p></main></div></div>`;
+  root.innerHTML = `<div class="management-layout"><aside class="sidebar"><button class="management-menu-toggle" type="button" data-management-menu aria-expanded="false">${icon('menu')}<span>Menu da gestão</span></button>${brand('Pesquisa de satisfação')}<div><p class="nav-label">Área de gestão</p><nav aria-label="Gestão">${nav.map(([id, text, glyph]) => `<a href="#${id === 'cadastro' ? 'cadastro/perguntas' : id}" class="${view === id ? 'active' : ''}" ${view === id ? 'aria-current="page"' : ''}>${icon(glyph)}${h(text)}</a>`).join('')}</nav></div><div class="sidebar-bottom"><div class="sidebar-note">${icon('shield')}Escutar com cuidado.<br>Proteger cada resposta.</div><button class="button subtle logout-button" data-logout>${icon('logout')} Sair da conta</button></div></aside><div class="workspace"><header class="workspace-header"><span>FHDOD / ${h(title)}</span><div class="header-user"><span class="user-name">${h(profile.nome)}</span><span class="pill">${h(roles[profile.papel] || 'Equipe')}</span><a class="text-button" href="#senha" aria-label="Alterar minha senha">${icon('user')}</a><button class="button subtle" data-logout style="padding:6px;min-height:40px">Sair</button></div></header><main id="main-content" class="workspace-content" tabindex="-1"><p class="loading">Carregando…</p></main></div></div>`;
   return $('#main-content', root);
 }
 async function route() {
@@ -205,16 +255,32 @@ async function route() {
   const fragment = location.hash.slice(1) || 'pesquisa';
   const [view, tab] = fragment.split('/');
   try {
+    if (view === 'login' && session()) {
+      navigate('painel');
+      return;
+    }
     if (['login', 'recuperar', 'senha', 'cadastro-conta'].includes(view)) {
       mountAuth(ctx, view);
       return;
     }
+    if (view === 'contato') {
+      const { mountContact } = await import('./assets/js/contact.js');
+      if (ctx.alive()) await mountContact(root, ctx);
+      return;
+    }
+    if (view === 'sobre') {
+      const { mountAbout } = await import('./assets/js/about.js');
+      if (ctx.alive()) await mountAbout(root);
+      return;
+    }
     if (view === 'tv') {
-      await mountWall(root, ctx);
+      const { mountWall } = await import('./assets/js/tv.js');
+      if (ctx.alive()) await mountWall(root, ctx);
       return;
     }
     if (!['painel', 'ouvidoria', 'cadastro', 'qrcodes'].includes(view)) {
-      await mountPatient(root, ctx);
+      const { mountPatient } = await import('./assets/js/patient.js');
+      if (ctx.alive()) await mountPatient(root, ctx);
       return;
     }
     if (!session()) {
@@ -238,10 +304,16 @@ async function route() {
     if (!ctx.alive()) return;
     const content = shell(view, profile);
     document.title = `FHDOD · ${view === 'painel' ? 'Visão da gestão' : view === 'ouvidoria' ? 'Ouvidoria' : view === 'qrcodes' ? 'QR Codes' : 'Cadastro'}`;
-    if (view === 'painel') await mountDashboard(content, ctx, store);
-    else if (view === 'ouvidoria') await mountManifestations(content, ctx, store);
-    else if (view === 'cadastro') await mountAdmin(content, ctx, store, tab);
-    else await mountQrs(content, ctx, store);
+    if (view === 'cadastro') {
+      const { mountAdmin } = await import('./assets/js/admin.js');
+      if (ctx.alive()) await mountAdmin(content, ctx, store, tab);
+    } else {
+      const { mountDashboard, mountManifestations, mountQrs } = await import('./assets/js/management.js');
+      if (!ctx.alive()) return;
+      if (view === 'painel') await mountDashboard(content, ctx, store);
+      else if (view === 'ouvidoria') await mountManifestations(content, ctx, store);
+      else await mountQrs(content, ctx, store);
+    }
     if (ctx.alive() && !content.contains(document.activeElement)) focusHeading(content);
   } catch (error) {
     if (!ctx.alive() || error.name === 'AbortError') return;

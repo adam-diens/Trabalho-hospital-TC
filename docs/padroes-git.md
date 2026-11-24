@@ -1,6 +1,6 @@
 # Padrões Git e metodologia
 
-- **Branches:** `developer` concentra a integração atual e é a branch configurada para deploy manual. Use branches de trabalho e revise antes de integrar; promova à `main` somente uma versão validada.
+- **Branches:** `developer` concentra a integração. Use branches de trabalho e revise antes de integrar; promova à `main` somente uma versão validada. O `render.yaml` publica `main` por deploy manual.
 - **Commits:** Conventional Commits em português quando couber: `feat: adiciona avaliação por rostinhos`, `fix: corrige filtro de setor`, `docs: documenta modelo de dados`.
 - **PR/revisão:** descrição do problema, escopo, evidência visual, passos manuais de validação, impacto em dados/segurança; uma revisão por outro integrante antes de merge; nunca subir `.env` ou dados reais.
 - **Organização:** `.gitignore`, README com setup e lista explícita do que falta; mudanças de esquema por migração revisável; tags para entregas.

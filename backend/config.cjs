@@ -79,7 +79,7 @@ function readConfig(env = process.env, { worker = false } = {}) {
     maxUpstreamBytes: integer('MAX_UPSTREAM_BYTES', 8388608, 1024, 33554432),
     readLimit: integer('READ_LIMIT_PER_MINUTE', 120, 1, 10000),
     authLimit: integer('AUTH_LIMIT_PER_10_MINUTES', 15, 1, 1000),
-    surveyLimit: integer('SURVEY_LIMIT_PER_10_MINUTES', 60, 1, 1000),
+    surveyLimit: integer('SURVEY_LIMIT_PER_10_MINUTES', 15, 1, 1000),
     maxExportRows: integer('MAX_EXPORT_ROWS', 10000, 100, 50000),
     streamIntervalMs: integer('STREAM_INTERVAL_MS', 15000, 100, 60000),
     streamMaxMs: integer('STREAM_MAX_MS', 300000, 500, 600000),

@@ -87,6 +87,10 @@ function createSupabase(config, fetchImpl = fetch) {
       throw new ApiError(429, 'RATE_LIMITED', 'Limite temporário de respostas atingido.', {
         'Retry-After': '600',
       });
+    if (code === 'P0001' && path.endsWith('/ep_enviar_contato'))
+      throw new ApiError(429, 'RATE_LIMITED', 'Limite temporário de mensagens atingido.', {
+        'Retry-After': '3600',
+      });
     if (code === '22023' || code === '22P02')
       throw new ApiError(
         400,

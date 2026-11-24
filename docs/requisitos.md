@@ -46,4 +46,4 @@ Paciente/acompanhante (sem conta); Ouvidoria (manifestações e contato); Gestã
 
 ## Rastreabilidade resumida
 
-Briefing → RF02 (baixa fricção), RF03 (jornada), RF04–05 (manifestações), RF06–07 (setor/turno/equipe), RF08–09 (dashboard/TV), RF10 (Excel), RF11–12 (papéis/auditoria). Referências visuais anexadas: fluxo de pesquisa, componentes de design, painel/Ouvidoria/TV Wall e esquema Supabase.
+Briefing → RF02 (baixa fricção), RF03 (jornada), RF04–05 (manifestações), RF06–07 (setor/turno/equipe), RF08–09 (dashboard/TV), RF10 (Excel), RF11–12 (papéis/auditoria). O fluxo e as decisões de interface estão descritos em [personas e fluxo](ux-personas-e-fluxo.md); o banco e seus relacionamentos estão no [modelo de dados](modelo-de-dados-e-requisitos.md).

@@ -1,9 +1,9 @@
 # Hospedar no Render e configurar o domínio
 
 
-O [render.yaml](../render.yaml) prepara um serviço web (site + API) e um worker (TV a cada 15 minutos e expurgo diário), usando a branch `developer`. Os dois serviços usam planos pagos para operação contínua; revise os valores no Render antes de criar. O banco continua no Supabase. A Vercel não está configurada nesta entrega: exigiria adaptar a execução da API e agendar a manutenção fora do processo contínuo atual.
+O [render.yaml](../render.yaml) prepara um serviço web (site + API) e um worker (TV a cada 15 minutos e expurgo diário), usando a branch `main`. Os dois serviços usam planos pagos para operação contínua; revise os valores no Render antes de criar. O banco continua no Supabase. A Vercel não está configurada nesta entrega: exigiria adaptar a execução da API e agendar a manutenção fora do processo contínuo atual.
 
-1. Envie as alterações ao repositório. No Render, crie um **Blueprint**, conecte o repositório e selecione `developer`.
+1. Envie as alterações validadas para `main`. No Render, crie um **Blueprint** e conecte o repositório; o Blueprint usa a branch `main` declarada no `render.yaml`.
 2. Informe `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SECRET_KEY` quando solicitado. O Blueprint gera o HMAC estável e configura o worker; não envie o `.env` local. Consulte [.env.production.example](../.env.production.example) para as variáveis de produção.
 3. No domínio `onrender.com`, os QR Codes e a recuperação usam automaticamente a URL pública fornecida pelo Render. Com domínio próprio, configure no serviço web `PUBLIC_ORIGIN=https://seu-dominio` e `AUTH_REDIRECT_URL=https://seu-dominio/?fluxo=recuperar-senha`. A URL nunca vem do cabeçalho Host do navegador.
 4. No Supabase Auth, configure **Site URL** com esse domínio e adicione a URL de recuperação às **Redirect URLs**. Mantenha cadastros por e-mail permitidos, confirmação conforme a política institucional e configure SMTP para os e-mails de produção. Confirme as migrations 001–006 e o perfil do primeiro Super Admin.

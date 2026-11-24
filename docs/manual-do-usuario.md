@@ -4,7 +4,7 @@
 
 1. Abra o link ou QR Code do setor; selecione o setor quando necessário.
 2. Escolha pesquisa rápida ou completa e leia o aviso de privacidade.
-3. Responda à pergunta geral. A escala pode ser rostinhos de 1 a 5 ou notas de 1 a 10.
+3. Responda à pergunta geral usando uma das cinco carinhas. No painel da gestão e na TV Wall, essa nota é apresentada em escala de 1 a 10, multiplicada por dois.
 4. Na completa, responda ou pule etapas. Se quiser, deixe uma manifestação e autorize um telefone para retorno.
 5. Envie e aguarde o agradecimento. Se houver falha, use a opção de tentar novamente.
 

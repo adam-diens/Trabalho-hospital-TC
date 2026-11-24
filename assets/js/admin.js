@@ -382,7 +382,7 @@ async function questionsView(root, ctx, store) {
   root.innerHTML = `<label class="field" style="max-width:360px;margin-bottom:20px">Setor<select id="question-sector">${sectorOptions(sectors, selected, null)}</select></label><div id="question-editor"></div>`;
   const editor = $('#question-editor', root);
   function stageHTML(stage, index) {
-    return `<fieldset class="stage-editor"><legend>Etapa opcional ${index + 1}</legend><label class="field">Pergunta<textarea data-field="texto" minlength="8" maxlength="300" required rows="2">${h(stage.texto || '')}</textarea></label><div class="compact-fields"><label class="field">Identificador da etapa<input data-field="chave" value="${h(stage.chave || '')}" pattern="[a-z][a-z0-9_]{0,49}" required maxlength="50"></label><label class="field">Tipo de resposta<select data-field="metrica">${option('rostos_5', 'Rostinhos de 1 a 5', stage.metrica)}${option('nota_10', 'Notas de 1 a 10', stage.metrica)}</select></label></div><button class="text-button remove-stage" type="button">Remover esta etapa</button></fieldset>`;
+    return `<fieldset class="stage-editor"><legend>Etapa opcional ${index + 1}</legend><label class="field">Pergunta<textarea data-field="texto" minlength="8" maxlength="300" required rows="2">${h(stage.texto || '')}</textarea></label><div class="compact-fields"><label class="field">Identificador da etapa<input data-field="chave" value="${h(stage.chave || '')}" pattern="[a-z][a-z0-9_]{0,49}" required maxlength="50"></label><input type="hidden" data-field="metrica" value="rostos_5"></div><button class="text-button remove-stage" type="button">Remover esta etapa</button></fieldset>`;
   }
   async function load() {
     const seq = ++sequence;
@@ -407,7 +407,7 @@ async function questionsView(root, ctx, store) {
       }
       if (!ctx.alive() || seq !== sequence) return;
       const general = question.perguntas.find((p) => p.geral);
-      editor.innerHTML = `<div class="two-columns"><section class="panel"><div class="panel-header"><h2>Perguntas da pesquisa</h2><span class="pill">${question.versao ? 'Versão ' + h(question.versao) : 'Nova pesquisa'}</span></div><form id="question-form" class="stack"><label class="field">Pergunta geral (obrigatória)<textarea name="pergunta_geral" minlength="8" maxlength="300" required>${h(general?.texto || '')}</textarea></label><label class="field">Tipo de resposta da pergunta geral<select name="metrica">${option('rostos_5', 'Rostinhos de 1 a 5', question.metrica)}${option('nota_10', 'Notas de 1 a 10', question.metrica)}</select></label><label class="field">Convidar à Ouvidoria para notas até<input type="number" name="limite_ouvidoria" min="1" max="${question.metrica === 'nota_10' ? 9 : 4}" value="${h(question.limite_ouvidoria)}" required><small>O convite é opcional para o paciente. Todas as notas podem deixar uma manifestação.</small></label><h3>Etapas opcionais</h3><div id="stage-editors" class="stack">${question.perguntas
+      editor.innerHTML = `<div class="two-columns"><section class="panel"><div class="panel-header"><h2>Perguntas da pesquisa</h2><span class="pill">${question.versao ? 'Versão ' + h(question.versao) : 'Nova pesquisa'}</span></div><form id="question-form" class="stack"><label class="field">Pergunta geral (obrigatória)<textarea name="pergunta_geral" minlength="8" maxlength="300" required>${h(general?.texto || '')}</textarea></label><input type="hidden" name="metrica" value="rostos_5"><label class="field">Convidar à Ouvidoria para notas até<input type="number" name="limite_ouvidoria" min="1" max="4" value="${h(question.limite_ouvidoria)}" required><small>O convite é opcional para o paciente. Todas as notas podem deixar uma manifestação.</small></label><h3>Etapas opcionais</h3><div id="stage-editors" class="stack">${question.perguntas
         .filter((p) => !p.geral)
         .map(stageHTML)
         .join(
@@ -419,7 +419,7 @@ async function questionsView(root, ctx, store) {
         const metric = form.elements.metrica.value;
         $('#preview-question', editor).textContent = form.elements.pergunta_geral.value;
         $('#preview-rating', editor).innerHTML = rating(metric, null, true);
-        form.elements.limite_ouvidoria.max = metric === 'nota_10' ? 9 : 4;
+        form.elements.limite_ouvidoria.max = 4;
         if (
           Number(form.elements.limite_ouvidoria.value) > Number(form.elements.limite_ouvidoria.max)
         )

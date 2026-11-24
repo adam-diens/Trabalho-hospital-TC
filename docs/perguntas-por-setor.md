@@ -9,9 +9,9 @@ Os setores iniciais são Pronto Atendimento (`pa`), Internação (`int`), Enferm
 ## Publicar perguntas
 
 1. Abra **Cadastro → Perguntas** e selecione o setor autorizado.
-2. Preencha a pergunta geral e escolha **Rostinhos de 1 a 5** ou **Notas de 1 a 10**.
+2. Preencha a pergunta geral e as etapas opcionais. Todas usam as cinco carinhas; o painel da gestão e a TV Wall apresentam as notas das carinhas multiplicadas por dois, em escala de 1 a 10.
 3. Defina o limiar do convite à Ouvidoria, inferior ao valor máximo da escala.
-4. Adicione até 20 etapas opcionais. Cada etapa tem texto, escala e identificador único; `geral` é reservado.
+4. Adicione até 20 etapas opcionais. Cada etapa tem texto e identificador único; `geral` é reservado.
 5. Confira a prévia e clique em **Publicar nova versão**.
 
 A pergunta geral é a única obrigatória. As etapas podem ter escalas diferentes. O limiar apenas orienta o convite: participantes com qualquer nota podem deixar uma manifestação.

@@ -32,6 +32,9 @@ export async function mountDashboard(root, ctx, store) {
     selectedMetric = 'rostos_5',
     revision = 0,
     activeController;
+  const displayScaleName = (metric) =>
+    metric === 'rostos_5' ? 'Carinhas × 2 · escala de 1 a 10' : 'Notas de 1 a 10';
+  const displayScore = (value, metric) => Number(value || 0) * (metric === 'rostos_5' ? 2 : 1);
   const filters = {
     inicio: daysAgo(29),
     fim: today(),
@@ -45,7 +48,7 @@ export async function mountDashboard(root, ctx, store) {
     .map(([k, v]) => option(k, v, ''))
     .join(
       '',
-    )}</select></label><div class="period-fields"><label class="field">De<input type="date" name="inicio" value="${filters.inicio}" required></label><label class="field">Até<input type="date" name="fim" value="${filters.fim}" required></label></div>${profile.papel !== 'visualizador' ? '<label class="field">Equipe<select name="equipe"><option value="">Todas as equipes</option></select></label>' : ''}<div class="filter-actions"><button class="button secondary" type="submit">Aplicar filtros</button></div><label class="field">Escala exibida<select id="metric-filter"><option value="rostos_5">Rostinhos de 1 a 5</option><option value="nota_10">Notas de 1 a 10</option></select></label><div class="live-status" id="dashboard-live" role="status">Conectando aos indicadores</div><p class="form-feedback" role="alert"></p></form><div id="dashboard-results"><p class="loading">Carregando os indicadores…</p></div>`;
+    )}</select></label><div class="period-fields"><label class="field">De<input type="date" name="inicio" value="${filters.inicio}" required></label><label class="field">Até<input type="date" name="fim" value="${filters.fim}" required></label></div>${profile.papel !== 'visualizador' ? '<label class="field">Equipe<select name="equipe"><option value="">Todas as equipes</option></select></label>' : ''}<div class="filter-actions"><button class="button secondary" type="submit">Aplicar filtros</button></div><label class="field">Escala exibida<select id="metric-filter"><option value="rostos_5">Carinhas × 2 · escala de 1 a 10</option><option value="nota_10">Notas de 1 a 10</option></select></label><div class="live-status" id="dashboard-live" role="status">Conectando aos indicadores</div><p class="form-feedback" role="alert"></p></form><div id="dashboard-results"><p class="loading">Carregando os indicadores…</p></div>`;
   const form = $('#dashboard-filters', root);
   const results = $('#dashboard-results', root);
   ctx.cleanup(() => activeController?.abort());
@@ -77,21 +80,23 @@ export async function mountDashboard(root, ctx, store) {
     data = summary;
     const metrics = summary.por_metrica || [];
     const selected = metrics.find((m) => m.metrica === selectedMetric);
-    const max = metricMax(selectedMetric);
+    const max = 10;
     const trend = (summary.tendencia || []).filter((r) => r.metrica === selectedMetric);
+    const displayTrend = trend.map((r) => ({ ...r, media: displayScore(r.media, selectedMetric) }));
     const stages = summary.etapas || [];
     const sectors = (summary.por_setor || []).filter((r) => r.metrica === selectedMetric);
     const groups = (summary.por_equipe || []).filter((r) => r.metrica === selectedMetric);
-    results.innerHTML = `<div class="kpis"><article class="kpi"><small>Nota média · ${h(metricName(selectedMetric))}</small><strong>${h(number(selected?.media))}<span style="font-size:16px;font-weight:400"> / ${max}</span></strong><p>${h(number(selected?.n || 0, 0))} respostas nesta escala</p></article><article class="kpi"><small>Total de respostas</small><strong>${h(number(summary.respostas || 0, 0))}</strong><p>${h(date(filters.inicio))} a ${h(date(filters.fim))}</p></article><article class="kpi"><small>Satisfação · escala selecionada</small><strong>${selected?.satisfacao === null || selected?.satisfacao === undefined ? '—' : h(number(selected.satisfacao)) + '%'}</strong><p>Notas ${max === 5 ? '4 e 5' : '8 a 10'} · ${h(number(summary.manifestacoes || 0, 0))} manifestações no total</p></article></div><div class="dashboard-grid"><article class="panel"><div class="panel-header"><h2>Evolução no tempo</h2><small>Média / ${max}</small></div>${lineChart(trend, selectedMetric)}</article><article class="panel"><div class="panel-header"><h2>Notas por etapa da jornada</h2><small>Etapas opcionais</small></div>${stages.length ? stages.map((r) => bar(r.texto, r.media, metricMax(r.metrica), r.n, `Versão ${r.versao} · ${metricName(r.metrica)}`)).join('') : empty('Nenhuma etapa avaliada neste período.')}</article><article class="panel"><div class="panel-header"><h2>Resultados por setor</h2><small>Média / ${max}</small></div>${sectors.length ? sectors.map((r) => bar(r.nome, r.media, max, r.n)).join('') : empty('Sem respostas nesta escala.')}</article><article class="panel"><div class="panel-header"><h2>Do hospital à equipe</h2><small>Setor · turno · equipe</small></div>${profile.papel === 'visualizador' ? empty('Seu perfil permite consultar os indicadores gerais.') : groups.length ? groups.map((r) => bar(r.nome, r.media, max, r.n)).join('') : empty('Equipes são exibidas a partir de 5 respostas na mesma escala.')}<p class="footnote">${h(summary.equipes_aviso || 'A associação considera o horário da resposta e a escala. Não representa atribuição individual de responsabilidade.')}</p></article><article class="panel"><div class="panel-header"><h2>Distribuição das avaliações</h2><small>${h(metricName(selectedMetric))}</small></div>${Array.from(
-      { length: max },
-      (_, i) => max - i,
+    results.innerHTML = `<div class="kpis"><article class="kpi"><small>Nota média · ${h(displayScaleName(selectedMetric))}</small><strong>${h(number(displayScore(selected?.media, selectedMetric)))}<span style="font-size:16px;font-weight:400"> / ${max}</span></strong><p>${h(number(selected?.n || 0, 0))} respostas nesta escala</p></article><article class="kpi"><small>Total de respostas</small><strong>${h(number(summary.respostas || 0, 0))}</strong><p>${h(date(filters.inicio))} a ${h(date(filters.fim))}</p></article><article class="kpi"><small>Satisfação · escala selecionada</small><strong>${selected?.satisfacao === null || selected?.satisfacao === undefined ? '—' : h(number(selected.satisfacao)) + '%'}</strong><p>Notas ${selectedMetric === 'rostos_5' ? '8 e 10' : '8 a 10'} · ${h(number(summary.manifestacoes || 0, 0))} manifestações no total</p></article></div><div class="dashboard-grid"><article class="panel"><div class="panel-header"><h2>Evolução no tempo</h2><small>Média / ${max}</small></div>${lineChart(displayTrend, 'nota_10')}</article><article class="panel"><div class="panel-header"><h2>Notas por etapa da jornada</h2><small>Etapas opcionais</small></div>${stages.length ? stages.map((r) => bar(r.texto, displayScore(r.media, r.metrica), max, r.n, `Versão ${r.versao} · ${displayScaleName(r.metrica)}`)).join('') : empty('Nenhuma etapa avaliada neste período.')}</article><article class="panel"><div class="panel-header"><h2>Resultados por setor</h2><small>Média / ${max}</small></div>${sectors.length ? sectors.map((r) => bar(r.nome, displayScore(r.media, r.metrica), max, r.n)).join('') : empty('Sem respostas nesta escala.')}</article><article class="panel"><div class="panel-header"><h2>Do hospital à equipe</h2><small>Setor · turno · equipe</small></div>${profile.papel === 'visualizador' ? empty('Seu perfil permite consultar os indicadores gerais.') : groups.length ? groups.map((r) => bar(r.nome, displayScore(r.media, r.metrica), max, r.n)).join('') : empty('Equipes são exibidas a partir de 5 respostas na mesma escala.')}<p class="footnote">${h(summary.equipes_aviso || 'A associação considera o horário da resposta e a escala. Não representa atribuição individual de responsabilidade.')}</p></article><article class="panel"><div class="panel-header"><h2>Distribuição das avaliações</h2><small>${h(displayScaleName(selectedMetric))}</small></div>${Array.from(
+      { length: metricMax(selectedMetric) },
+      (_, i) => metricMax(selectedMetric) - i,
     )
       .map((n) => {
         const row = (summary.distribuicao || []).find(
           (r) => r.metrica === selectedMetric && Number(r.nota) === n,
         );
         const count = Number(row?.n || 0);
-        return bar(`Nota ${n}`, count, Math.max(1, Number(selected?.n || 0)), undefined);
+        const displayNote = selectedMetric === 'rostos_5' ? n * 2 : n;
+        return bar(`Nota ${displayNote}`, count, Math.max(1, Number(selected?.n || 0)), undefined);
       })
       .join(
         '',
@@ -466,50 +471,4 @@ export async function mountQrs(root, ctx) {
     if (ctx.alive() && error.name !== 'AbortError')
       $('#qr-grid', root).innerHTML = notice(error.message, true);
   }
-}
-
-export async function mountWall(root, ctx) {
-  let snapshot = null,
-    metric = 'rostos_5',
-    timer,
-    seq = 0;
-  root.innerHTML = `<main class="wall" id="main-content" tabindex="-1"><header class="wall-header"><div id="wall-brand"></div><div class="wall-meta"><p class="eyebrow">A voz de quem recebe cuidado</p><span id="wall-updated">Buscando indicadores…</span><div class="row" style="justify-content:end;margin-top:10px"><label class="sr-only" for="wall-metric">Escala exibida</label><select id="wall-metric" style="width:auto"><option value="rostos_5">Rostinhos de 1 a 5</option><option value="nota_10">Notas de 1 a 10</option></select><a class="text-button" href="#pesquisa">Voltar à pesquisa</a></div></div></header><div id="wall-results"><p class="loading">Carregando indicadores públicos…</p></div><footer class="wall-thanks"><h2>Sua voz faz parte do nosso cuidado.</h2><p>Obrigado por compartilhar sua experiência com a FHDOD.</p><small class="muted">Painel público · Somente resultados agregados · Sem identificação individual</small></footer></main>`;
-  const { brand, face } = await import('./ui.js');
-  $('#wall-brand', root).innerHTML = brand('Pesquisa de satisfação');
-  function render() {
-    const row = snapshot.metricas?.find((r) => r.metrica === metric);
-    const area = $('#wall-results', root);
-    if (!row) {
-      area.innerHTML = `<section class="panel">${empty('Ainda não há um grupo de respostas publicado nesta escala. Novos resultados aparecem após a atualização dos indicadores agregados.')}</section>`;
-      $('#wall-updated', root).textContent = 'Aguardando publicação de indicadores';
-      return;
-    }
-    $('#wall-updated', root).textContent = 'Publicado em ' + date(row.publicado_em, true);
-    area.innerHTML = `<div class="wall-grid"><section class="wall-hero"><h1>Experiência dos pacientes</h1><div class="row spread"><div class="wall-value">${h(number(row.media))}<small> / ${metricMax(metric)}</small></div><div class="wall-face">${face(Math.max(1, Math.min(5, Math.round((Number(row.media) / metricMax(metric)) * 5))))}</div></div><p>${h(metricName(metric))} · Todo o hospital</p><div class="wall-count"><strong>${h(number(row.n, 0))}</strong><span><b>respostas no período</b><br>Cada participação ajuda a melhorar.</span></div></section><section class="panel wall-facts"><h2>O cuidado em números</h2><div class="fact"><strong>${row.satisfacao == null ? '—' : h(number(row.satisfacao)) + '%'}</strong><p>Satisfação · notas ${metricMax(metric) === 5 ? '4 e 5' : '8 a 10'}</p></div><div class="fact"><strong style="font-size:22px">${h(date(row.inicio))} a ${h(date(row.fim))}</strong><p>Período das avaliações publicadas</p></div><p class="footnote">As escalas são apresentadas separadamente. Os resultados são publicados em grupos para proteger cada resposta.</p></section></div>`;
-  }
-  $('#wall-metric', root).addEventListener('change', (event) => {
-    metric = event.target.value;
-    if (snapshot) render();
-  });
-  async function load() {
-    const version = ++seq;
-    try {
-      const data = await request('/tv', { signal: ctx.signal });
-      if (!ctx.alive() || version !== seq) return;
-      snapshot = data;
-      if (!data.metricas?.some((r) => r.metrica === metric) && data.metricas?.length) {
-        metric = data.metricas[0].metrica;
-        $('#wall-metric', root).value = metric;
-      }
-      render();
-    } catch (error) {
-      if (ctx.alive() && error.name !== 'AbortError') {
-        $('#wall-results', root).innerHTML = notice(error.message, true);
-        $('#wall-updated', root).textContent = 'Indicadores temporariamente indisponíveis';
-      }
-    }
-  }
-  await load();
-  if (ctx.alive()) timer = setInterval(load, 60000);
-  ctx.cleanup(() => clearInterval(timer));
 }

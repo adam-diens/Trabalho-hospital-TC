@@ -24,11 +24,22 @@ const drawings = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 22v-4c0-4 16-4 16 0v4"/>',
   download: '<path d="M12 2v13m-5-5 5 5 5-5M3 16v5h18v-5"/>',
   close: '<path d="m5 5 14 14M19 5 5 19"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
 };
 export const icon = (name, cls = '') =>
   `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${drawings[name] || drawings.hospital}</svg>`;
 export const brand = (sector = 'Experiência do paciente') =>
   `<a class="brand" href="#pesquisa"><img class="brand-logo" src="/assets/fhdod-logo-crop.jpg" alt="FHDOD — Fundação Hospitalar Dr. Oswaldo Diesel">${sector ? `<small class="brand-context">${h(sector)}</small>` : ''}</a>`;
+export function publicHeader({ context = '', current = '' } = {}) {
+  const links = [
+    ...(context ? [['#pesquisa', context, 'pesquisa']] : [['#pesquisa', 'Pesquisa', 'pesquisa']]),
+    ['#tv', 'TV Wall', 'tv'],
+    ['#contato', 'Contato', 'contato'],
+    ['#sobre', 'Sobre nós', 'sobre'],
+    ['#login', 'Acesso da equipe', 'login'],
+  ];
+  return `<header class="public-header">${brand('')}<button class="menu-toggle" type="button" data-public-menu aria-label="Abrir menu" aria-expanded="false" aria-controls="public-navigation">${icon('menu')}</button><nav class="public-nav" id="public-navigation" aria-label="Navegação principal">${links.map(([href, label, id]) => `<a href="${href}" ${current === id ? 'aria-current="page"' : ''}>${h(label)}</a>`).join('')}</nav></header>`;
+}
 export const roles = {
   super_admin: 'Super Admin',
   admin_setor: 'Admin de Setor',

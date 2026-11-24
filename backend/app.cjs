@@ -300,6 +300,18 @@ function createApplication(
           { operational: true },
         );
       }
+      case 'contact': {
+        // A field left filled is a bot signal; answer generically without storing it.
+        if (data.website) return { recebida: true };
+        const origem = security.originHash(request, true);
+        return db.rpc('ep_enviar_contato', {
+          p_origem_hash: origem,
+          p_nome: data.nome.trim(),
+          p_email: data.email.trim().toLowerCase(),
+          p_assunto: data.assunto.trim(),
+          p_mensagem: data.mensagem.trim(),
+        }, { operational: true });
+      }
       case 'me':
         return actor.profile;
       case 'signin':
@@ -599,6 +611,8 @@ function createApplication(
           security.limit(request, 'auth', config.authLimit, 600000);
         if (route.action === 'pesquisa')
           security.limit(request, 'survey', config.surveyLimit, 600000);
+        if (route.action === 'contact')
+          security.limit(request, 'contact', 5, 3600000);
         const query = v.queryValues(url.searchParams, route.query);
         const data = route.body
           ? v.validate(await readBody(request, config.maxBodyBytes), route.body)
@@ -641,7 +655,7 @@ function createApplication(
         '/tablet.css': 'tablet.css',
       };
       let relative = publicFiles[pathname];
-      if (!relative && /^\/assets\/js\/(?:api|ui|patient|management|admin)\.js$/.test(pathname))
+      if (!relative && /^\/assets\/js\/(?:api|ui|patient|management|admin|contact|tv|about)\.js$/.test(pathname))
         relative = pathname.slice(1);
       if (
         !relative &&

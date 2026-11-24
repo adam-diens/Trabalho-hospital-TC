@@ -31,6 +31,16 @@ add('GET', '/setores/:slug/formulario', 'Consultar formulário e aviso de privac
   action: 'formulario',
 });
 add('GET', '/tv', 'Consultar indicadores públicos agregados', { rpc: 'ep_tv' });
+add('POST', '/contato', 'Enviar mensagem ao canal institucional de contato', {
+  action: 'contact',
+  body: v.object({
+    nome: v.string(2, 120),
+    email,
+    assunto: v.string(3, 120),
+    mensagem: v.string(10, 3000),
+    website: v.string(0, 200),
+  }, ['nome', 'email', 'assunto', 'mensagem', 'website']),
+});
 add('POST', '/pesquisas', 'Enviar pesquisa completa em uma transação', {
   action: 'pesquisa',
   body: v.object(
