@@ -21,7 +21,8 @@
     "deploy:check": "node scripts/check-deploy.cjs"
   },
   "dependencies": {
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "swagger-ui-dist": "^5.36.0"
   },
   "devDependencies": {
     "prettier": "^3.9.10"

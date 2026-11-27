@@ -8,6 +8,14 @@ const { createSecurity, securityHeaders } = require('./security.cjs');
 const { matchRoutes, mapRpc, exportFields } = require('./routes.cjs');
 const v = require('./validation.cjs');
 const { openapi } = require('./openapi.cjs');
+const swaggerUiDistPath = require('swagger-ui-dist').getAbsoluteFSPath();
+const swaggerUiFiles = new Set([
+  'swagger-ui.css',
+  'swagger-ui-bundle.js',
+  'swagger-ui-standalone-preset.js',
+  'favicon-16x16.png',
+  'favicon-32x32.png',
+]);
 
 const projectRoot = path.resolve(__dirname, '..');
 const exportColumns = [
@@ -650,12 +658,20 @@ function createApplication(
       const publicFiles = {
         '/': 'index.html',
         '/index.html': 'index.html',
+        '/docs/api': 'docs/api.html',
+        '/docs/api.html': 'docs/api.html',
         '/app.js': 'app.js',
         '/styles.css': 'styles.css',
         '/tablet.css': 'tablet.css',
       };
       let relative = publicFiles[pathname];
-      if (!relative && /^\/assets\/js\/(?:api|ui|patient|management|admin|contact|tv|about)\.js$/.test(pathname))
+      let fileRoot = projectRoot;
+      const swaggerAsset = pathname.match(/^\/docs\/swagger\/([a-z0-9.-]+)$/i)?.[1];
+      if (!relative && swaggerAsset && swaggerUiFiles.has(swaggerAsset)) {
+        relative = swaggerAsset;
+        fileRoot = swaggerUiDistPath;
+      }
+      if (!relative && /^\/assets\/js\/(?:api|ui|patient|management|admin|contact|tv|about|swagger)\.js$/.test(pathname))
         relative = pathname.slice(1);
       if (
         !relative &&
@@ -665,15 +681,15 @@ function createApplication(
       )
         relative = pathname.slice(1);
       if (!relative) throw new ApiError(404, 'NOT_FOUND', 'Arquivo não encontrado.');
-      const file = await fs.realpath(path.join(projectRoot, relative)).catch(() => null);
+      const file = await fs.realpath(path.join(fileRoot, relative)).catch(() => null);
       const allowedRoot = relative.startsWith('assets/')
         ? await fs.realpath(path.join(projectRoot, 'assets'))
-        : projectRoot;
+        : await fs.realpath(fileRoot);
       if (
         !file ||
         (relative.startsWith('assets/')
           ? !file.startsWith(allowedRoot + path.sep)
-          : file !== path.join(projectRoot, relative))
+          : file !== path.join(fileRoot, relative))
       )
         throw new ApiError(404, 'NOT_FOUND', 'Arquivo não encontrado.');
       const types = {
