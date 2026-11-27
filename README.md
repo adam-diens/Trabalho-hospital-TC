@@ -121,7 +121,8 @@ Os testes SQL não devem ser executados no Supabase remoto. Código, migrations 
 | Recurso | Link |
 |---|---|
 | Aplicação publicada | [FHDOD no Render](https://trabalho-hospital-tc.onrender.com/) |
-| Documentação online da API (OpenAPI) | [Abrir especificação JSON](https://trabalho-hospital-tc.onrender.com/api/openapi.json) |
+| Documentação interativa da API (Swagger UI) | [Explorar endpoints](https://trabalho-hospital-tc.onrender.com/docs/api) |
+| Especificação OpenAPI em JSON | [Abrir contrato](https://trabalho-hospital-tc.onrender.com/api/openapi.json) |
 | Código-fonte | [Repositório no GitHub](https://github.com/adam-diens/Trabalho-hospital-TC) |
 | Documentação do projeto | [Pasta `docs/` no GitHub](https://github.com/adam-diens/Trabalho-hospital-TC/tree/main/docs) |
 | Documento do projeto | [Sistema de Gestão da Experiência do Paciente](docs/sistema-gestao-experiencia-paciente-fhdod.pdf) |
